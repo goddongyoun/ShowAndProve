@@ -1,40 +1,105 @@
-# Dependencies
+# OSX
+.DS_Store
+
+# Xcode
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+project.xcworkspace
+
+# Android/IntelliJ
+build/
+.idea
+.gradle
+local.properties
+*.iml
+*.hprof
+.cxx/
+*.keystore
+!debug.keystore
+
+# Node.js
 node_modules/
-.pnp
-.pnp.js
+npm-debug.log
+yarn-error.log
+yarn-debug.log*
+
+# Bundle artifact
+*.jsbundle
+
+# Ruby / CocoaPods
+/ios/Pods/
+/vendor/bundle/
 
 # Expo
 .expo/
-dist/
 web-build/
+dist/
 
-# Native
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Metro
-.metro-health-check*
-
-# Debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
+# Python 가상환경
+venv/
+env/
+.venv/
+.env/
+ENV/
+virtualenv/
+pyenv/
+pythonenv/
 
 # Local env files
-.env*.local
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Typescript
-*.tsbuildinfo
+# Logs
+logs
+*.log
+
+# Coverage directory
+coverage/
+
+# Stores
+.eslintcache
+.vercel
 
 # IDE
 .idea/
 .vscode/
+*.swp
+*.swo
