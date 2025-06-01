@@ -8,7 +8,7 @@ import HomeScreen from '../screens/HomeScreen';
 import ChallengeVerificationScreen from '../screens/ChallengeVerification';
 import MyPage from '../screens/MyPage';
 import ChallengeDetail from '../screens/ChallengeDetail';
-import { TouchableOpacity, Text } from 'react-native';
+import { TouchableOpacity, Text, View } from 'react-native';
 
 const Stack = createStackNavigator();
 
@@ -21,12 +21,20 @@ export default function AppNavigator() {
           headerBackImage: () => null,
           headerBackTitleVisible: false,
           headerRight: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Login')}
-              style={{ marginRight: 15, backgroundColor: '#eee', padding: 8, borderRadius: 8 }}
-            >
-              <Text>로그인</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Home')}
+                style={{ marginRight: 10, backgroundColor: '#eee', padding: 8, borderRadius: 8 }}
+              >
+                <Text>메인페이지</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Login')}
+                style={{ marginRight: 15, backgroundColor: '#eee', padding: 8, borderRadius: 8 }}
+              >
+                <Text>로그인</Text>
+              </TouchableOpacity>
+            </View>
           ),
         })}
       >

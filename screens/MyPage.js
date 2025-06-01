@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import BottomNavBar from '../navigation/BottomNavBar';
 
 export default function MyPage({ navigation }) {
   const handleChallengeClick = (challenge) => {
@@ -21,17 +22,7 @@ export default function MyPage({ navigation }) {
         </TouchableOpacity>
       </View>
       {/* 네비게이션 바 */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 10 }}>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={{ padding: 10 }}>
-          <Text>메인</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('MyPage')} style={{ padding: 10 }}>
-          <Text>마이페이지</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('ChallengeCreate')} style={{ padding: 10 }}>
-          <Text>도전과제 생성</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNavBar navigation={navigation} />
     </View>
   );
 } 

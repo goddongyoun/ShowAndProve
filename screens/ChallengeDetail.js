@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import BottomNavBar from '../navigation/BottomNavBar';
 
 export default function ChallengeDetail({ route, navigation }) {
   // 더미 도전과제 정보 (실제 구현할 때 데이터베이스에서 정보 받아오게끔 해야 됨)
@@ -29,17 +30,7 @@ export default function ChallengeDetail({ route, navigation }) {
         </TouchableOpacity>
       </View>
       {/* 네비게이션 바 */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 10 }}>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={{ padding: 10 }}>
-          <Text>메인</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('MyPage')} style={{ padding: 10 }}>
-          <Text>마이페이지</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('ChallengeCreate')} style={{ padding: 10 }}>
-          <Text>도전과제 생성</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNavBar navigation={navigation} />
     </View>
   );
 } 
