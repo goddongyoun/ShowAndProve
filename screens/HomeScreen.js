@@ -65,6 +65,39 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
+  // 새 도전과제 만들기 버튼 클릭 시 로그인 확인
+  const handleCreateChallenge = () => {
+    console.log('handleCreateChallenge 함수 호출됨');
+    console.log('currentUser 상태:', currentUser);
+    console.log('currentUser 타입:', typeof currentUser);
+    console.log('currentUser가 null인가?', currentUser === null);
+    console.log('currentUser가 undefined인가?', currentUser === undefined);
+    console.log('!currentUser 결과:', !currentUser);
+    
+    if (!currentUser) {
+      console.log('로그인 안됨 - Alert 표시');
+      Alert.alert(
+        '로그인 필요',
+        '도전과제를 만들려면 먼저 로그인해주세요.',
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '로그인',
+            onPress: () => {
+              console.log('로그인 버튼 클릭 - Login 화면으로 이동');
+              navigation.navigate('Login');
+            }
+          }
+        ]
+      );
+      return;
+    }
+    
+    console.log('로그인됨 - ChallengeCreate 화면으로 이동');
+    // 로그인되어 있으면 도전과제 생성 페이지로 이동
+    navigation.navigate('ChallengeCreate');
+  };
+
   const renderChallenge = ({ item }) => {
     console.log('Challenge Creator:', item.creator);
     const canDelete = currentUser && item.creator === currentUser.email;
@@ -108,7 +141,7 @@ export default function HomeScreen({ navigation }) {
       />
       <TouchableOpacity
         style={[globalStyles.button, { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }]}
-        onPress={() => navigation.navigate('ChallengeCreate')}
+        onPress={handleCreateChallenge} // 변경된 부분
       >
         <Icon name="plus" size={20} color="#000" style={{ marginRight: 5 }} />
         <Text style={globalStyles.buttonText}>새 도전과제 만들기</Text>
