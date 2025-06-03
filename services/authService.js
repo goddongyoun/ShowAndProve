@@ -80,3 +80,36 @@ export const logoutUser = async () => {
     console.error('로그아웃 실패:', error);
   }
 };
+
+export const createChallenge = async (challengeData) => {
+  try {
+    const response = await api.post('/challenges', {
+      title: challengeData.title,
+      content: challengeData.content
+    });
+    return response.data;
+  } catch (error) {
+    const errorMessage = error.response?.data?.error || error.message || '알 수 없는 오류가 발생했습니다.';
+    throw new Error(`도전과제 생성 실패: ${errorMessage}`);
+  }
+};
+
+export const submitToChallenge = async (challengeId, submissionData) => {
+  try {
+    const formData = new FormData();
+    formData.append('comment', submissionData.comment || '');
+    if (submissionData.photo) {
+      formData.append('photo', submissionData.photo);
+    }
+
+    const response = await api.post(`/challenges/${challengeId}/submit`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    const errorMessage = error.response?.data?.error || error.message || '알 수 없는 오류가 발생했습니다.';
+    throw new Error(`도전과제 참여 실패: ${errorMessage}`);
+  }
+};

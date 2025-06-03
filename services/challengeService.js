@@ -67,8 +67,7 @@ export const getChallenges = async () => {
 
 export const uploadVerificationPhoto = async (challengeId, userId, photoData) => {
   const formData = new FormData();
-  formData.append('challengeId', challengeId);
-  formData.append('userId', userId);
+  formData.append('comment', ''); // 코멘트 필드 추가 (빈 값으로)
 
   if (Platform.OS === 'web') {
     formData.append('photo', photoData);
@@ -83,7 +82,8 @@ export const uploadVerificationPhoto = async (challengeId, userId, photoData) =>
   console.log('FormData Content:', formData instanceof FormData ? 'FormData instance created' : formData);
 
   try {
-    const response = await api.post('/verifications', formData);
+    // 수정된 엔드포인트: /challenges/{challengeId}/submit
+    const response = await api.post(`/challenges/${challengeId}/submit`, formData);
     return response.data;
   } catch (error) {
     const errorMessage = error.response?.data?.error || error.message || '알 수 없는 오류가 발생했습니다.';
@@ -103,7 +103,8 @@ export const deleteChallenge = async (challengeId) => {
 
 export const getVerifications = async (challengeId) => {
   try {
-    const response = await api.get(`/verifications/${challengeId}`);
+    // 수정된 엔드포인트: /challenges/{challengeId}/submissions
+    const response = await api.get(`/challenges/${challengeId}/submissions`);
     return response.data;
   } catch (error) {
     const errorMessage = error.response?.data?.error || error.message || '알 수 없는 오류가 발생했습니다.';
@@ -128,5 +129,18 @@ export const updateChallengeStatus = async (challengeId, status) => {
   } catch (error) {
     const errorMessage = error.response?.data?.error || error.message || '알 수 없는 오류가 발생했습니다.';
     throw new Error(`도전과제 상태 업데이트 실패: ${errorMessage}`);
+  }
+};
+
+export const getUserChallenges = async (userEmail) => {
+  try {
+    console.log('사용자 도전과제 조회:', userEmail);
+    // /api 제거 - baseURL에 이미 포함되어 있음
+    const response = await api.get(`/users/${userEmail}/challenges`);
+    console.log('사용자 도전과제 응답:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('사용자 도전과제 조회 오류:', error);
+    throw new Error(error.response?.data?.message || '사용자 도전과제를 불러오는데 실패했습니다.');
   }
 };

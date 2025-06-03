@@ -6,7 +6,7 @@ import { uploadVerificationPhoto, getVerifications, deleteVerification, updateCh
 import { getCurrentUser } from '../../services/authService';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const BASE_URL = 'http://203.234.62.50:5000';
+const BASE_URL = 'http://219.254.146.234:5000';
 
 export default function ChallengeListScreen({ route, navigation }) {
   const { challenge } = route.params;
@@ -174,21 +174,21 @@ export default function ChallengeListScreen({ route, navigation }) {
   };
 
   const renderVerification = ({ item }) => {
-    const canDelete = currentUser && item.userId === currentUser.email;
+    const canDelete = currentUser && item.user_email === currentUser.email;
 
     return (
       <View style={{ marginVertical: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flex: 1 }}>
           <Image
-            source={{ uri: `${BASE_URL}${item.photoUrl}` }}
+            source={{ uri: `${BASE_URL}${item.photo_path}` }}
             style={{ width: '100%', height: 200, borderRadius: 8 }}
           />
           <Text style={[globalStyles.text, { color: '#666', fontSize: 12, marginTop: 5 }]}>
-            Uploaded on: {new Date(item.createdAt).toLocaleDateString()}
+            Uploaded on: {new Date(item.submitted_at).toLocaleDateString()}
           </Text>
         </View>
         {canDelete && (
-          <TouchableOpacity onPress={() => handleDeleteVerification(item._id)} style={{ marginLeft: 10 }}>
+          <TouchableOpacity onPress={() => handleDeleteVerification(item.id)} style={{ marginLeft: 10 }}>
             <Icon name="trash-can-outline" size={24} color="#FF4444" />
           </TouchableOpacity>
         )}
@@ -288,7 +288,7 @@ export default function ChallengeListScreen({ route, navigation }) {
       <FlatList
         data={verifications}
         renderItem={renderVerification}
-        keyExtractor={item => item._id}
+        keyExtractor={item => item.id.toString()}
       />
     </View>
   );

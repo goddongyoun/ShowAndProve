@@ -43,26 +43,15 @@ export default function HomeScreen({ navigation }) {
   }, [navigation]);
 
   const handleDelete = async (challengeId) => {
-    Alert.alert(
-      '도전과제 삭제',
-      '정말로 이 도전과제를 삭제하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteChallenge(challengeId);
-              fetchChallenges();
-            } catch (error) {
-              alert(error.message);
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+    const confirmed = confirm('정말로 이 도전과제를 삭제하시겠습니까?');
+    if (confirmed) {
+      try {
+        await deleteChallenge(challengeId);
+        fetchChallenges();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
   };
 
   // 새 도전과제 만들기 버튼 클릭 시 로그인 확인
@@ -75,21 +64,8 @@ export default function HomeScreen({ navigation }) {
     console.log('!currentUser 결과:', !currentUser);
     
     if (!currentUser) {
-      console.log('로그인 안됨 - Alert 표시');
-      Alert.alert(
-        '로그인 필요',
-        '도전과제를 만들려면 먼저 로그인해주세요.',
-        [
-          { text: '취소', style: 'cancel' },
-          {
-            text: '로그인',
-            onPress: () => {
-              console.log('로그인 버튼 클릭 - Login 화면으로 이동');
-              navigation.navigate('Login');
-            }
-          }
-        ]
-      );
+      console.log('로그인 안됨 - alert 표시');
+      alert('로그인이 필요한 작업입니다');
       return;
     }
     
@@ -105,7 +81,7 @@ export default function HomeScreen({ navigation }) {
     return (
       <View style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E0E0E0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <TouchableOpacity
-          onPress={() => navigation.navigate('ChallengeList', { challenge: item })}
+          onPress={() => navigation.navigate('ChallengeDetail', { challenge: item })}  // ← 변경됨
           style={{ flex: 1 }}
         >
           <Text style={[globalStyles.text, { fontSize: 18 }]}>{item.title}</Text>

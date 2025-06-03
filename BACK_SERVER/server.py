@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import pymysql
 from pymysql import Error
@@ -7,6 +7,7 @@ import jwt
 import datetime
 from functools import wraps
 import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)
@@ -21,6 +22,17 @@ DB_CONFIG = {
     'user': os.getenv('DB_USER', 'root'),
     'password': os.getenv('DB_PASSWORD')  # 환경변수에서 가져옴 (필수)
 }
+
+# 사진 업로드 설정
+UPLOAD_FOLDER = 'photos'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+# photos 폴더가 없으면 생성
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # 데이터베이스 연결 함수
 def get_db_connection():
@@ -47,7 +59,7 @@ def get_db_connection():
         print(f"데이터베이스 연결 오류: {e}")
         return None
 
-# JWT 토큰 검증 데코레이터
+# JWT 토큰 검증 데코레이터 (수정됨)
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -60,13 +72,33 @@ def token_required(f):
             if token.startswith('Bearer '):
                 token = token[7:]
             data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
-            current_user_id = data['user_id']
+            
+            # 사용자 정보 가져오기
+            connection = get_db_connection()
+            if connection is None:
+                return jsonify({'error': '데이터베이스 연결 실패'}), 500
+                
+            cursor = connection.cursor()
+            cursor.execute("SELECT * FROM users WHERE id = %s", (data['user_id'],))
+            user = cursor.fetchone()
+            cursor.close()
+            connection.close()
+            
+            if not user:
+                return jsonify({'error': '사용자를 찾을 수 없습니다'}), 401
+                
+            current_user = {
+                'id': user['id'],
+                'email': user['email'],
+                'name': user['name']
+            }
+            
         except jwt.ExpiredSignatureError:
             return jsonify({'error': '토큰이 만료되었습니다'}), 401
         except jwt.InvalidTokenError:
             return jsonify({'error': '유효하지 않은 토큰입니다'}), 401
         
-        return f(current_user_id, *args, **kwargs)
+        return f(current_user, *args, **kwargs)
     
     return decorated
 
@@ -86,8 +118,6 @@ def log_request():
 @app.before_request
 def before_request():
     log_request()
-
-
 
 # 회원가입
 @app.route('/api/register', methods=['POST'])
@@ -181,259 +211,374 @@ def login_user():
         cursor.close()
         connection.close()
 
-# 도전과제 생성
+# 도전과제 생성 API (사진 없이 기본 정보만)
 @app.route('/api/challenges', methods=['POST'])
 @token_required
-def create_challenge(current_user_id):
-    data = request.get_json()
-    
-    if not data or not data.get('title'):
-        return jsonify({'error': '제목이 필요합니다'}), 400
-    
-    connection = get_db_connection()
-    if connection is None:
-        return jsonify({'error': '데이터베이스 연결 실패'}), 500
-    
-    cursor = connection.cursor()
-    
+def create_challenge(current_user):
     try:
-        insert_query = "INSERT INTO challenges (title, description, creator_id) VALUES (%s, %s, %s)"
-        cursor.execute(insert_query, (data['title'], data.get('description', ''), current_user_id))
+        data = request.get_json()
+        title = data.get('title')
+        content = data.get('content')
+        
+        if not title or not content:
+            return jsonify({'error': '제목과 내용을 모두 입력해주세요'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # challenges 테이블에 기본 정보만 저장 (사진 없음)
+        query = """
+        INSERT INTO challenges (title, content, creator, creator_name, created_at) 
+        VALUES (%s, %s, %s, %s, %s)
+        """
+        cursor.execute(query, (
+            title, 
+            content, 
+            current_user['email'], 
+            current_user['name'],
+            datetime.datetime.now()
+        ))
         connection.commit()
-        
         challenge_id = cursor.lastrowid
-        
-        return jsonify({
-            'message': '도전과제 생성 성공',
-            'challenge': {
-                'id': challenge_id,
-                'title': data['title'],
-                'description': data.get('description', ''),
-                'creator_id': current_user_id,
-                'status': 'active'
-            }
-        }), 201
-        
-    except Error as e:
-        print(f"도전과제 생성 오류: {e}")
-        return jsonify({'error': '도전과제 생성 실패'}), 500
-    finally:
         cursor.close()
         connection.close()
+        
+        return jsonify({
+            'message': '도전과제가 성공적으로 생성되었습니다',
+            'challenge_id': challenge_id
+        }), 201
+        
+    except Exception as e:
+        print(f"도전과제 생성 오류: {e}")
+        return jsonify({'error': '도전과제 생성 중 오류가 발생했습니다'}), 500
 
-# 도전과제 목록 조회 (로그인 불필요)
+# 도전과제 목록 조회 API
 @app.route('/api/challenges', methods=['GET'])
 def get_challenges():
-    connection = get_db_connection()
-    if connection is None:
-        return jsonify({'error': '데이터베이스 연결 실패'}), 500
-    
-    cursor = connection.cursor()
-    
     try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # challenges 테이블에서 기본 정보 조회
         query = """
-        SELECT c.*, u.name as creator_name 
-        FROM challenges c 
-        JOIN users u ON c.creator_id = u.id 
+        SELECT c.id as _id, c.title, c.content, c.creator, c.creator_name as creatorName, c.created_at,
+               COUNT(cs.id) as submission_count
+        FROM challenges c
+        LEFT JOIN challenge_submissions cs ON c.id = cs.challenge_id
+        GROUP BY c.id, c.title, c.content, c.creator, c.creator_name, c.created_at
         ORDER BY c.created_at DESC
         """
         cursor.execute(query)
         challenges = cursor.fetchall()
-        
-        return jsonify({
-            'message': '도전과제 목록 조회 성공',
-            'challenges': challenges
-        })
-        
-    except Error as e:
-        print(f"도전과제 목록 조회 오류: {e}")
-        return jsonify({'error': '도전과제 목록 조회 실패'}), 500
-    finally:
         cursor.close()
         connection.close()
-
-# 사진 인증 업로드
-@app.route('/api/verifications', methods=['POST'])
-@token_required
-def upload_verification(current_user_id):
-    challenge_id = request.form.get('challengeId')
-    
-    if not challenge_id:
-        return jsonify({'error': '도전과제 ID가 필요합니다'}), 400
-    
-    # 파일 처리 (실제 파일 저장 로직은 별도 구현 필요)
-    photo_url = f"mock-photo-{challenge_id}-{current_user_id}.jpg"
-    
-    connection = get_db_connection()
-    if connection is None:
-        return jsonify({'error': '데이터베이스 연결 실패'}), 500
-    
-    cursor = connection.cursor()
-    
-    try:
-        insert_query = "INSERT INTO verifications (challenge_id, user_id, photo_url) VALUES (%s, %s, %s)"
-        cursor.execute(insert_query, (challenge_id, current_user_id, photo_url))
-        connection.commit()
         
-        verification_id = cursor.lastrowid
+        # 딕셔너리로 변환
+        challenge_list = []
+        for challenge in challenges:
+            challenge_dict = {
+                '_id': challenge['_id'],
+                'title': challenge['title'], 
+                'content': challenge['content'],
+                'creator': challenge['creator'],
+                'creatorName': challenge['creatorName'],
+                'created_at': challenge['created_at'],
+                'submission_count': challenge['submission_count']  # 참여자 수
+            }
+            challenge_list.append(challenge_dict)
+        
+        return jsonify(challenge_list), 200
+        
+    except Exception as e:
+        print(f"도전과제 조회 오류: {e}")
+        return jsonify({'error': '도전과제 조회 중 오류가 발생했습니다'}), 500
+
+# 도전과제 참여/사진 제출 API
+@app.route('/api/challenges/<int:challenge_id>/submit', methods=['POST'])
+@token_required
+def submit_to_challenge(current_user, challenge_id):
+    try:
+        comment = request.form.get('comment', '')
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 도전과제 존재 확인
+        cursor.execute("SELECT id FROM challenges WHERE id = %s", (challenge_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            connection.close()
+            return jsonify({'error': '존재하지 않는 도전과제입니다'}), 404
+        
+        # 이미 참여했는지 확인
+        cursor.execute("""
+            SELECT id FROM challenge_submissions 
+            WHERE challenge_id = %s AND user_email = %s
+        """, (challenge_id, current_user['email']))
+        
+        if cursor.fetchone():
+            cursor.close()
+            connection.close()
+            return jsonify({'error': '이미 이 도전과제에 참여하셨습니다'}), 400
+        
+        photo_path = None
+        
+        # 사진 파일 처리
+        if 'photo' in request.files:
+            file = request.files['photo']
+            if file and file.filename != '' and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_')
+                filename = timestamp + filename
+                
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                file.save(file_path)
+                photo_path = f"/photos/{filename}"
+        
+        # challenge_submissions 테이블에 제출 정보 저장
+        query = """
+        INSERT INTO challenge_submissions (challenge_id, user_email, user_name, photo_path, comment, submitted_at) 
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(query, (
+            challenge_id,
+            current_user['email'], 
+            current_user['name'],
+            photo_path,
+            comment,
+            datetime.datetime.now()
+        ))
+        connection.commit()
+        submission_id = cursor.lastrowid
+        cursor.close()
+        connection.close()
         
         return jsonify({
-            'message': '인증 사진 업로드 성공',
-            'verification': {
-                'id': verification_id,
-                'challenge_id': challenge_id,
-                'user_id': current_user_id,
-                'photo_url': photo_url
-            }
+            'message': '도전과제 참여가 완료되었습니다',
+            'submission_id': submission_id,
+            'photo_path': photo_path
         }), 201
         
-    except Error as e:
-        print(f"인증 사진 업로드 오류: {e}")
-        return jsonify({'error': '인증 사진 업로드 실패'}), 500
-    finally:
-        cursor.close()
-        connection.close()
+    except Exception as e:
+        print(f"도전과제 참여 오류: {e}")
+        return jsonify({'error': '도전과제 참여 중 오류가 발생했습니다'}), 500
 
-# 도전과제 삭제
-@app.route('/api/challenges/<int:challenge_id>', methods=['DELETE'])
-@token_required
-def delete_challenge(current_user_id, challenge_id):
-    connection = get_db_connection()
-    if connection is None:
-        return jsonify({'error': '데이터베이스 연결 실패'}), 500
-    
-    cursor = connection.cursor()
-    
+# 특정 도전과제의 제출물들 조회 API
+@app.route('/api/challenges/<int:challenge_id>/submissions', methods=['GET'])
+def get_challenge_submissions(challenge_id):
     try:
-        # 도전과제 소유자 확인
-        cursor.execute("SELECT creator_id FROM challenges WHERE id = %s", (challenge_id,))
-        result = cursor.fetchone()
-        
-        if not result:
-            return jsonify({'error': '도전과제를 찾을 수 없습니다'}), 404
-        
-        if result[0] != current_user_id:
-            return jsonify({'error': '삭제 권한이 없습니다'}), 403
-        
-        # 도전과제 삭제 (외래키로 연결된 데이터도 자동 삭제됨)
-        cursor.execute("DELETE FROM challenges WHERE id = %s", (challenge_id,))
-        connection.commit()
-        
-        return jsonify({'message': '도전과제 삭제 성공'})
-        
-    except Error as e:
-        print(f"도전과제 삭제 오류: {e}")
-        return jsonify({'error': '도전과제 삭제 실패'}), 500
-    finally:
-        cursor.close()
-        connection.close()
-
-# 인증 사진 목록 조회 (로그인 불필요)
-@app.route('/api/verifications/<int:challenge_id>', methods=['GET'])
-def get_verifications(challenge_id):
-    connection = get_db_connection()
-    if connection is None:
-        return jsonify({'error': '데이터베이스 연결 실패'}), 500
-    
-    cursor = connection.cursor()
-    
-    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
         query = """
-        SELECT v.*, u.name as user_name 
-        FROM verifications v 
-        JOIN users u ON v.user_id = u.id 
-        WHERE v.challenge_id = %s 
-        ORDER BY v.created_at DESC
+        SELECT cs.id, cs.user_email, cs.user_name, cs.photo_path, cs.comment, cs.submitted_at,
+               c.title as challenge_title
+        FROM challenge_submissions cs
+        JOIN challenges c ON cs.challenge_id = c.id
+        WHERE cs.challenge_id = %s
+        ORDER BY cs.submitted_at DESC
         """
         cursor.execute(query, (challenge_id,))
-        verifications = cursor.fetchall()
-        
-        return jsonify({
-            'message': '인증 사진 목록 조회 성공',
-            'verifications': verifications
-        })
-        
-    except Error as e:
-        print(f"인증 사진 목록 조회 오류: {e}")
-        return jsonify({'error': '인증 사진 목록 조회 실패'}), 500
-    finally:
+        submissions = cursor.fetchall()
         cursor.close()
         connection.close()
+        
+        submission_list = []
+        for submission in submissions:
+            submission_dict = {
+                'id': submission['id'],
+                'user_email': submission['user_email'],
+                'user_name': submission['user_name'],
+                'photo_path': submission['photo_path'],
+                'comment': submission['comment'],
+                'submitted_at': submission['submitted_at'],
+                'challenge_title': submission['challenge_title']
+            }
+            submission_list.append(submission_dict)
+        
+        return jsonify(submission_list), 200
+        
+    except Exception as e:
+        print(f"제출물 조회 오류: {e}")
+        return jsonify({'error': '제출물 조회 중 오류가 발생했습니다'}), 500
 
-# 인증 사진 삭제
-@app.route('/api/verifications/<int:verification_id>', methods=['DELETE'])
-@token_required
-def delete_verification(current_user_id, verification_id):
-    connection = get_db_connection()
-    if connection is None:
-        return jsonify({'error': '데이터베이스 연결 실패'}), 500
-    
-    cursor = connection.cursor()
-    
-    try:
-        # 인증 사진 소유자 확인
-        cursor.execute("SELECT user_id FROM verifications WHERE id = %s", (verification_id,))
-        result = cursor.fetchone()
-        
-        if not result:
-            return jsonify({'error': '인증 사진을 찾을 수 없습니다'}), 404
-        
-        if result[0] != current_user_id:
-            return jsonify({'error': '삭제 권한이 없습니다'}), 403
-        
-        cursor.execute("DELETE FROM verifications WHERE id = %s", (verification_id,))
-        connection.commit()
-        
-        return jsonify({'message': '인증 사진 삭제 성공'})
-        
-    except Error as e:
-        print(f"인증 사진 삭제 오류: {e}")
-        return jsonify({'error': '인증 사진 삭제 실패'}), 500
-    finally:
-        cursor.close()
-        connection.close()
-
-# 도전과제 상태 업데이트
+# 도전과제 상태 업데이트 API (누락되어 있던 엔드포인트)
 @app.route('/api/challenges/<int:challenge_id>/status', methods=['PATCH'])
 @token_required
-def update_challenge_status(current_user_id, challenge_id):
-    data = request.get_json()
-    
-    if not data or 'status' not in data:
-        return jsonify({'error': '상태 값이 필요합니다'}), 400
-    
-    valid_statuses = ['active', 'completed', 'cancelled']
-    if data['status'] not in valid_statuses:
-        return jsonify({'error': f'유효한 상태: {valid_statuses}'}), 400
-    
-    connection = get_db_connection()
-    if connection is None:
-        return jsonify({'error': '데이터베이스 연결 실패'}), 500
-    
-    cursor = connection.cursor()
-    
+def update_challenge_status(current_user, challenge_id):
     try:
-        # 도전과제 소유자 확인
-        cursor.execute("SELECT creator_id FROM challenges WHERE id = %s", (challenge_id,))
+        data = request.get_json()
+        
+        if not data or 'status' not in data:
+            return jsonify({'error': '상태 값이 필요합니다'}), 400
+        
+        valid_statuses = ['완료', '실패', 'active', 'completed', 'cancelled']
+        if data['status'] not in valid_statuses:
+            return jsonify({'error': f'유효한 상태: {valid_statuses}'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 도전과제 존재 및 권한 확인 (생성자만 상태 변경 가능)
+        cursor.execute("SELECT creator FROM challenges WHERE id = %s", (challenge_id,))
         result = cursor.fetchone()
         
         if not result:
+            cursor.close()
+            connection.close()
             return jsonify({'error': '도전과제를 찾을 수 없습니다'}), 404
         
-        if result[0] != current_user_id:
-            return jsonify({'error': '수정 권한이 없습니다'}), 403
+        if result['creator'] != current_user['email']:
+            cursor.close()
+            connection.close()
+            return jsonify({'error': '상태 변경 권한이 없습니다'}), 403
         
+        # 상태 업데이트 (challenges 테이블에 status 컬럼이 없다면 추가 필요)
         cursor.execute("UPDATE challenges SET status = %s WHERE id = %s", (data['status'], challenge_id))
         connection.commit()
-        
-        return jsonify({'message': '도전과제 상태 업데이트 성공', 'status': data['status']})
-        
-    except Error as e:
-        print(f"도전과제 상태 업데이트 오류: {e}")
-        return jsonify({'error': '도전과제 상태 업데이트 실패'}), 500
-    finally:
         cursor.close()
         connection.close()
+        
+        return jsonify({
+            'message': '도전과제 상태 업데이트 성공', 
+            'status': data['status']
+        }), 200
+        
+    except Exception as e:
+        print(f"도전과제 상태 업데이트 오류: {e}")
+        return jsonify({'error': '도전과제 상태 업데이트 실패'}), 500
+
+# 인증 사진 삭제 API (누락되어 있던 엔드포인트)
+@app.route('/api/verifications/<int:verification_id>', methods=['DELETE'])
+@token_required
+def delete_verification(current_user, verification_id):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 권한 확인 (제출자만 삭제 가능)
+        cursor.execute("SELECT user_email FROM challenge_submissions WHERE id = %s", (verification_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            cursor.close()
+            connection.close()
+            return jsonify({'error': '존재하지 않는 인증 사진입니다'}), 404
+        
+        if result['user_email'] != current_user['email']:
+            cursor.close()
+            connection.close()
+            return jsonify({'error': '삭제 권한이 없습니다'}), 403
+        
+        # 인증 사진 삭제
+        cursor.execute("DELETE FROM challenge_submissions WHERE id = %s", (verification_id,))
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'message': '인증 사진이 성공적으로 삭제되었습니다'}), 200
+        
+    except Exception as e:
+        print(f"인증 사진 삭제 오류: {e}")
+        return jsonify({'error': '인증 사진 삭제 중 오류가 발생했습니다'}), 500
+
+# 도전과제 삭제 API
+@app.route('/api/challenges/<int:challenge_id>', methods=['DELETE'])
+@token_required
+def delete_challenge(current_user, challenge_id):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 권한 확인 (생성자만 삭제 가능)
+        cursor.execute("SELECT creator FROM challenges WHERE id = %s", (challenge_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            cursor.close()
+            connection.close()
+            return jsonify({'error': '존재하지 않는 도전과제입니다'}), 404
+        
+        if result['creator'] != current_user['email']:
+            cursor.close()
+            connection.close()
+            return jsonify({'error': '삭제 권한이 없습니다'}), 403
+        
+        # 도전과제 삭제 (CASCADE로 관련 제출물도 자동 삭제)
+        cursor.execute("DELETE FROM challenges WHERE id = %s", (challenge_id,))
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'message': '도전과제가 성공적으로 삭제되었습니다'}), 200
+        
+    except Exception as e:
+        print(f"도전과제 삭제 오류: {e}")
+        return jsonify({'error': '도전과제 삭제 중 오류가 발생했습니다'}), 500
+
+# 사진 파일 제공 API
+@app.route('/photos/<filename>')
+def uploaded_file(filename):
+    print(f"=== Photo Request ===")
+    print(f"Sending photo: {filename}")
+    print(f"Request from: {request.remote_addr}")
+    print(f"Full path: {os.path.join(UPLOAD_FOLDER, filename)}")
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+@app.route('/api/users/<user_email>/challenges', methods=['GET'])
+def get_user_challenges(user_email):
+    try:
+        print(f"=== User Challenges Request ===")
+        print(f"User Email: {user_email}")
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 사용자가 참여한 도전과제 조회 (MySQL 쿼리)
+        query = """
+        SELECT DISTINCT c.id as _id, c.title, c.content, c.creator, 
+            c.creator_name as creatorName, c.created_at as createdAt, c.status
+        FROM challenges c
+        JOIN challenge_submissions cs ON c.id = cs.challenge_id
+        WHERE cs.user_email = %s
+        ORDER BY c.created_at DESC
+        """
+        cursor.execute(query, (user_email,))
+        user_challenges = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        
+        print(f"Found challenges: {len(user_challenges)}")
+        print(f"Returning {len(user_challenges)} challenges")
+        
+        return jsonify(user_challenges), 200
+        
+    except Exception as e:
+        print(f"Error in get_user_challenges: {str(e)}")
+        return jsonify({"message": str(e)}), 500
 
 # 기본 루트
 @app.route('/')
@@ -446,11 +591,12 @@ def home():
             "POST /api/login - 로그인",
             "POST /api/challenges - 도전과제 생성",
             "GET /api/challenges - 도전과제 목록 조회", 
-            "POST /api/verifications - 사진 인증 업로드",
-            "DELETE /api/challenges/<id> - 도전과제 삭제",
-            "GET /api/verifications/<challenge_id> - 인증 사진 목록 조회",
+            "POST /api/challenges/<id>/submit - 도전과제 참여/사진 제출",
+            "GET /api/challenges/<id>/submissions - 특정 도전과제 제출물 조회",
+            "PATCH /api/challenges/<id>/status - 도전과제 상태 업데이트",
             "DELETE /api/verifications/<id> - 인증 사진 삭제",
-            "PATCH /api/challenges/<id>/status - 도전과제 상태 업데이트"
+            "DELETE /api/challenges/<id> - 도전과제 삭제",
+            "GET /photos/<filename> - 업로드된 사진 조회"
         ]
     })
 

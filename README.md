@@ -62,33 +62,3 @@ CREATE TABLE user_challenges (
     INDEX idx_challenge (challenge_id),
     INDEX idx_status (status)
 );
-
--- 샘플 데이터 삽입 (테스트용)
-INSERT INTO users (email, password, name) VALUES 
-('test@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj2RSYC.YO.y', '테스트 사용자'),
-('admin@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj2RSYC.YO.y', '관리자');
-
-INSERT INTO challenges (title, description, creator_id) VALUES 
-('매일 물 2L 마시기', '건강한 생활을 위해 매일 물 2L를 마시는 도전', 1),
-('일주일 운동하기', '일주일 동안 매일 30분씩 운동하기', 2);
-
-INSERT INTO user_challenges (user_id, challenge_id) VALUES 
-(1, 1),
-(2, 1),
-(2, 2);
-
--- 테이블 구조 확인
-DESCRIBE users;
-DESCRIBE challenges;
-DESCRIBE verifications;
-DESCRIBE user_challenges;
-
--- 외래키 관계 확인
-SELECT 
-    TABLE_NAME,
-    COLUMN_NAME,
-    CONSTRAINT_NAME,
-    REFERENCED_TABLE_NAME,
-    REFERENCED_COLUMN_NAME
-FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-WHERE REFERENCED_TABLE_SCHEMA = 'ChallengeDB';

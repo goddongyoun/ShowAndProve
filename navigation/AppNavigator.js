@@ -68,7 +68,7 @@ export default function AppNavigator() {
       }}
     >
       <Stack.Navigator
-        initialRouteName="MyPage"
+        initialRouteName="Home"
         screenOptions={({ navigation }) => ({
           headerBackImage: () => null,
           headerBackTitleVisible: false,
@@ -80,6 +80,15 @@ export default function AppNavigator() {
               >
                 <Text>메인페이지</Text>
               </TouchableOpacity>
+              
+              {isLoggedIn && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('MyPage')}
+                  style={{ marginRight: 10, backgroundColor: '#ccffcc', padding: 8, borderRadius: 8 }}
+                >
+                  <Text>마이페이지</Text>
+                </TouchableOpacity>
+              )}
               
               {isLoggedIn ? (
                 // 로그인된 상태: 로그아웃 버튼
@@ -112,7 +121,7 @@ export default function AppNavigator() {
         <Stack.Screen name="ChallengeCreate" component={ChallengeCreateScreen} />
         <Stack.Screen name="ChallengeList" component={ChallengeListScreen} />
         <Stack.Screen name="ChallengeVerification" component={ChallengeVerificationScreen} />
-        <Stack.Screen name="MyPage" component={HomeScreen} />
+        <Stack.Screen name="MyPage" component={MyPage} />
         <Stack.Screen name="ChallengeDetail" component={ChallengeDetail} />
       </Stack.Navigator>
     </NavigationContainer>
