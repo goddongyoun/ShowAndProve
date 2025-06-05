@@ -1,3 +1,16 @@
+"""
+명령어의 나열만 보기 위함이라면 직접 필요 모듈만 인스톨 하고 로컬로 실행시키시면 됩니다. 단 mysql에 DB와 테이블이 존재하지 않으면 백엔드 서버로서 활동하지 못합니다.
+
+필요한 모듈을 인스톨 하시고 서버를 파이썬으로 실행시킨 후에
+http://127.0.0.1:5000/
+or
+http://219.254.146.234:5000/
+여기로 들어가시면 모든 엔드포인트가 출력될겁니다. 만약 글씨가 깨져보이거나 한국어가 보이지 않는다면, 크롬 기준 화면 위쪽에 pretty print 적용 누르시면 한국어 표시될 겁니다.
+description : 어떤 행위를 하는 함수(엔드포인트)인지
+request : 함수(엔드포인트)가 필요로 하는 입력값
+response_error : 제대로 실행되지 않았을때 반환하는 json 형태
+response_success : 제대로 실행되었을때 반환하는 json 형태
+"""
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import pymysql
@@ -586,18 +599,89 @@ def home():
     return jsonify({
         "message": "Challenge API Server with MySQL 실행 중",
         "database": "ChallengeDB",
-        "endpoints": [
-            "POST /api/register - 회원가입",
-            "POST /api/login - 로그인",
-            "POST /api/challenges - 도전과제 생성",
-            "GET /api/challenges - 도전과제 목록 조회", 
-            "POST /api/challenges/<id>/submit - 도전과제 참여/사진 제출",
-            "GET /api/challenges/<id>/submissions - 특정 도전과제 제출물 조회",
-            "PATCH /api/challenges/<id>/status - 도전과제 상태 업데이트",
-            "DELETE /api/verifications/<id> - 인증 사진 삭제",
-            "DELETE /api/challenges/<id> - 도전과제 삭제",
-            "GET /photos/<filename> - 업로드된 사진 조회"
-        ]
+        "endpoints": {
+            "인증": {
+                "POST /api/register": {
+                    "description": "회원가입",
+                    "request": {"email": "string", "password": "string", "name": "string"},
+                    "response_success": {"message": "회원가입 성공", "user": {"id": "int", "email": "string", "name": "string"}},
+                    "response_error": {"error": "이미 존재하는 이메일입니다"}
+                },
+                "POST /api/login": {
+                    "description": "로그인",
+                    "request": {"email": "string", "password": "string"},
+                    "response_success": {"message": "로그인 성공", "token": "string", "user": {"id": "int", "email": "string", "name": "string"}},
+                    "response_error": {"error": "이메일 또는 비밀번호가 잘못되었습니다"}
+                }
+            },
+            "도전과제": {
+                "POST /api/challenges": {
+                    "description": "도전과제 생성",
+                    "request": {"title": "string", "content": "string"},
+                    "response_success": {"message": "도전과제가 성공적으로 생성되었습니다", "challenge_id": "int"},
+                    "response_error": {"error": "제목과 내용을 모두 입력해주세요"}
+                },
+                "GET /api/challenges": {
+                    "description": "도전과제 목록 조회",
+                    "request": "없음",
+                    "response_success": [{"_id": "int", "title": "string", "content": "string", "creator": "string", "creatorName": "string", "created_at": "datetime", "submission_count": "int"}],
+                    "response_error": {"error": "도전과제 조회 중 오류가 발생했습니다"}
+                },
+                "DELETE /api/challenges/{id}": {
+                    "description": "도전과제 삭제",
+                    "request": "없음 (토큰 필요)",
+                    "response_success": {"message": "도전과제가 성공적으로 삭제되었습니다"},
+                    "response_error": {"error": "삭제 권한이 없습니다"}
+                },
+                "PATCH /api/challenges/{id}/status": {
+                    "description": "도전과제 상태 업데이트",
+                    "request": {"status": "string"},
+                    "response_success": {"message": "도전과제 상태 업데이트 성공", "status": "string"},
+                    "response_error": {"error": "상태 변경 권한이 없습니다"}
+                }
+            },
+            "참여/제출": {
+                "POST /api/challenges/{id}/submit": {
+                    "description": "도전과제 참여/사진 제출",
+                    "request": {"comment": "string", "photo": "file"},
+                    "response_success": {"message": "도전과제 참여가 완료되었습니다", "submission_id": "int", "photo_path": "string"},
+                    "response_error": {"error": "존재하지 않는 도전과제입니다"}
+                },
+                "GET /api/challenges/{id}/submissions": {
+                    "description": "특정 도전과제 제출물 조회",
+                    "request": "없음",
+                    "response_success": [{"id": "int", "user_email": "string", "user_name": "string", "photo_path": "string", "comment": "string", "submitted_at": "datetime", "challenge_title": "string"}],
+                    "response_error": {"error": "제출물 조회 중 오류가 발생했습니다"}
+                },
+                "DELETE /api/verifications/{id}": {
+                    "description": "인증 사진 삭제",
+                    "request": "없음 (토큰 필요)",
+                    "response_success": {"message": "인증 사진이 성공적으로 삭제되었습니다"},
+                    "response_error": {"error": "삭제 권한이 없습니다"}
+                }
+            },
+            "사용자": {
+                "GET /api/users/{user_email}/challenges": {
+                    "description": "사용자 참여 도전과제 조회",
+                    "request": "없음",
+                    "response_success": [{"_id": "int", "title": "string", "content": "string", "creator": "string", "creatorName": "string", "createdAt": "datetime", "status": "string"}],
+                    "response_error": {"message": "에러 메시지"}
+                }
+            },
+            "파일": {
+                "GET /photos/{filename}": {
+                    "description": "업로드된 사진 조회",
+                    "request": "없음",
+                    "response_success": "파일 데이터",
+                    "response_error": "404 Not Found"
+                }
+            }
+        },
+        "upload_settings": {
+            "allowed_extensions": ["png", "jpg", "jpeg", "gif"],
+            "upload_folder": "photos",
+            "max_file_size": "제한 없음"
+        }
     })
 
 # 에러 핸들러
@@ -617,7 +701,7 @@ def internal_error(error):
 
 if __name__ == '__main__':
     print("Challenge API Server with MySQL 시작...")
-    print("서버 주소: http://203.234.62.50:5000")
+    print("서버 주소: http://219.254.146.234:5000")
     print("로컬 테스트: http://localhost:5000")
     print("🔧 필요 패키지:")
     print("  pip install flask flask-cors pymysql bcrypt pyjwt")
