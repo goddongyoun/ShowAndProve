@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
 import { globalStyles } from '../../utils/styles';
 import { loginUser } from '../../services/authService';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -21,7 +21,8 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={globalStyles.container}>
-      <Text style={globalStyles.title}>로그인</Text>
+      <Image source={require('../../assets/images/icon.png')} style={globalStyles.logo} />
+      <Text style={globalStyles.wordmark}>Show and Prove</Text>
       <TextInput
         placeholder="이메일"
         value={email}
@@ -41,7 +42,7 @@ export default function LoginScreen({ navigation }) {
         <Text style={globalStyles.buttonText}>로그인</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={[globalStyles.text, { color: '#FFF44F', textAlign: 'center' }]}>
+        <Text style={[globalStyles.text, { color: '#FFD400', textAlign: 'center', textDecorationLine: 'underline' }]}>
           계정이 없으신가요? 회원가입
         </Text>
       </TouchableOpacity>
