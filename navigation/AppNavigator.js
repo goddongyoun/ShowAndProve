@@ -10,6 +10,7 @@ import HomeScreen from '../screens/HomeScreen';
 import ChallengeVerificationScreen from '../screens/ChallengeVerification';
 import MyPage from '../screens/MyPage';
 import ChallengeDetail from '../screens/ChallengeDetail';
+import LeaderboardScreen from '../screens/LeaderboardScreen';
 import { TouchableOpacity, Text, View, Alert } from 'react-native';
 
 const Stack = createStackNavigator();
@@ -125,6 +126,13 @@ export default function AppNavigator() {
         <Stack.Screen name="ChallengeVerification" component={ChallengeVerificationScreen} />
         <Stack.Screen name="MyPage" component={MyPage} />
         <Stack.Screen name="ChallengeDetail" component={ChallengeDetail} />
+        <Stack.Screen
+          name="Leaderboard"
+          component={LeaderboardScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

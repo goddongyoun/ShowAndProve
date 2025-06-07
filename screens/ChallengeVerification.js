@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import BottomNavBar from '../navigation/BottomNavBar';
 import { uploadVerificationPhoto } from '../services/challengeService';
 import { getCurrentUser } from '../services/authService';
+import { globalStyles } from '../utils/styles';
 
 export default function ChallengeVerificationScreen({ route, navigation }) {
   const { challengeId } = route.params;
@@ -215,38 +216,37 @@ export default function ChallengeVerificationScreen({ route, navigation }) {
         }}
         onPress={() => handleDeletePhoto(item.id)}
       >
-        <Text style={{ color: 'white', fontSize: 12 }}>×</Text>
+        <Text style={[globalStyles.text, { color: 'white', fontSize: 12 }]}>×</Text>
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <View style={{ flex: 1, padding: 20, justifyContent: 'space-between' }}>
+    <View style={[globalStyles.container, { flex: 1, padding: 20, justifyContent: 'space-between' }]}>
       <View>
-        <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>
+        <Image source={require('../assets/images/icon.png')} style={globalStyles.logo} />
+        <Text style={[globalStyles.text, { fontSize: 24, marginBottom: 20, color: '#5E4636', textAlign: 'center' }]}>
           도전과제 인증
         </Text>
         
-        <Text style={{ fontSize: 16, marginBottom: 10, color: '#666' }}>
+        <Text style={[globalStyles.text, { fontSize: 16, marginBottom: 10, color: '#666', textAlign: 'center' }]}>
           포스트잇에 닉네임({currentUser?.name})을 적어 인증해주세요.
         </Text>
         
         <TouchableOpacity 
-          style={{ 
-            backgroundColor: '#FFF44F', 
-            padding: 15, 
-            borderRadius: 8, 
+          style={[globalStyles.button, {
+            padding: 15,
             marginBottom: 20,
             alignItems: 'center'
-          }} 
+          }]} 
           onPress={handleUploadPhoto}
         >
-          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>인증 사진 업로드</Text>
+          <Text style={[globalStyles.text, { fontSize: 16, color: '#FFFFFF' }]}>인증 사진 업로드</Text>
         </TouchableOpacity>
         
         {photos.length > 0 && (
           <View style={{ marginBottom: 20 }}>
-            <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 10 }}>
+            <Text style={[globalStyles.text, { fontSize: 16, fontWeight: 'bold', marginBottom: 10 }]}>
               선택된 사진 ({photos.length})
             </Text>
             <FlatList
@@ -260,20 +260,20 @@ export default function ChallengeVerificationScreen({ route, navigation }) {
         )}
         
         <TouchableOpacity 
-          style={{ 
+          style={[globalStyles.button, {
             backgroundColor: photos.length > 0 ? '#4CAF50' : '#ccc', 
             padding: 15, 
             borderRadius: 8,
             alignItems: 'center'
-          }} 
+          }]} 
           onPress={handleSubmitVerification}
           disabled={photos.length === 0}
         >
-          <Text style={{ 
+          <Text style={[globalStyles.text, { 
             fontSize: 16, 
             fontWeight: 'bold',
             color: photos.length > 0 ? 'white' : '#666'
-          }}>
+          }]}>
             인증 제출 ({photos.filter(p => !p.uploaded).length}개 대기중)
           </Text>
         </TouchableOpacity>

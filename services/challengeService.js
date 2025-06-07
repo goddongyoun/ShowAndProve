@@ -136,7 +136,7 @@ export const getUserChallenges = async (userEmail) => {
   try {
     console.log('사용자 도전과제 조회:', userEmail);
     // /api 제거 - baseURL에 이미 포함되어 있음
-    const response = await api.get(`/users/${userEmail}/challenges`);
+    const response = await api.get(`/users/${userEmail}/challenges`); // TODO: 사용자의 도전과제 목록을 받아올 수 있도록 수정
     console.log('사용자 도전과제 응답:', response.data);
     return response.data;
   } catch (error) {

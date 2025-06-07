@@ -22,6 +22,10 @@ export default function BottomNavBar() {
         <Icon name="account-outline" size={30} color="#FFFFFF" />
         {/* <Text>마이페이지</Text> */}
       </TouchableOpacity>
+      <TouchableOpacity onPress={() => navigate('Leaderboard')} style={{ padding: 10 }}>
+        <Icon name="trophy-variant-outline" size={30} color="#FFFFFF" />
+        {/* <Text>리더보드</Text> */}
+      </TouchableOpacity>
     </View>
   );
 } 

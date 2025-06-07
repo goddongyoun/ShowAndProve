@@ -13,6 +13,7 @@ import BottomNavBar from '../navigation/BottomNavBar';
 import { getVerifications } from '../services/challengeService';
 import { getCurrentUser } from '../services/authService';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {globalStyles} from '../utils/styles';
 
 const BASE_URL = 'http://219.254.146.234:5000';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -34,7 +35,6 @@ export default function ChallengeDetail({ route, navigation }) {
 
   /** 환경에 따라 반응형으로 리스트를 1열 / 2열 / 3열... 등으로 맞춤 */
   const getNumColumns = () => {
-    console.log(screenWidth);
     if (screenWidth < 480) {
       return 1;
     } else if (screenWidth < 768) {
@@ -127,9 +127,11 @@ export default function ChallengeDetail({ route, navigation }) {
 
     return (
       <View style={{
-        backgroundColor: '#f9f9f9',
+        backgroundColor: '#FFFFFF',
         padding: 15,
-        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: '#FFE357',
+        borderRadius: 16,
         width: itemWidth,
         margin: itemGap,
       }}>
@@ -146,15 +148,15 @@ export default function ChallengeDetail({ route, navigation }) {
             />
           </TouchableOpacity>
         )}
-        <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 5 }}>
+        <Text style={[globalStyles.text, { fontSize: 14, marginBottom: 5 }]}>
           {userName}
         </Text>
         {hasComment && (
-          <Text style={{ fontSize: 12, color: '#666', marginBottom: 5 }}>
+          <Text style={[globalStyles.text, { fontSize: 12, color: '#666', marginBottom: 5 }]}>
             {`"${commentText}"`}
           </Text>
         )}
-        <Text style={{ fontSize: 12, color: '#888' }}>
+        <Text style={[globalStyles.text, { fontSize: 12, color: '#888' }]}>
           {dateText}
         </Text>
       </View>
@@ -163,36 +165,35 @@ export default function ChallengeDetail({ route, navigation }) {
 
   const renderHeader = () => (
     <View style={{ padding: 20 }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 10 }}>
+      <Text style={[globalStyles.text, { fontSize: 24, color: '#5E4636', marginBottom: 10 }]}>
         {challenge.title || '제목 없음'}
       </Text>
-      <Text style={{ marginBottom: 10, fontSize: 16 }}>
+      <Text style={[globalStyles.text, { marginBottom: 10, color: '#5E4636', fontSize: 16 }]}>
         {challenge.description || challenge.content || '내용 없음'}
       </Text>
-      <Text style={{ color: '#888', marginBottom: 10 }}>
+      <Text style={[globalStyles.text, { color: '#888', marginBottom: 10 }]}>
         작성자: {challenge.creator || challenge.creatorName || '알 수 없음'}
       </Text>
-      <Text style={{ color: '#888', marginBottom: 20 }}>
+      <Text style={[globalStyles.text, { color: '#888', marginBottom: 20 }] }>
         {challenge.createdAt || challenge.created_at
           ? `생성일: ${new Date(challenge.createdAt || challenge.created_at).toLocaleDateString()}`
           : '생성일: 날짜 없음'}
       </Text>
       <TouchableOpacity
-        style={{
-          backgroundColor: '#FFF44F',
+        style={[globalStyles.button, {
           padding: 15,
           borderRadius: 8,
           flexDirection: 'row',
           justifyContent: 'center',
           alignItems: 'center',
           marginBottom: 30,
-        }}
+        }]}
         onPress={handleVerify}
       >
-        <Icon name="camera-plus" size={20} color="#000" style={{ marginRight: 8 }} />
-        <Text style={{ fontSize: 16, fontWeight: 'bold' }}>도전과제 인증</Text>
+        <Icon name="camera-plus" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+        <Text style={[globalStyles.text, { fontSize: 16, color: '#FFFFFF' }]}>도전과제 인증</Text>
       </TouchableOpacity>
-      <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15 }}>
+      <Text style={[globalStyles.text, { fontSize: 20, color: '#5E4636', marginBottom: 15 }]}>
         인증 사진 목록 ({verifications.length})
       </Text>
     </View>
@@ -201,8 +202,8 @@ export default function ChallengeDetail({ route, navigation }) {
   const renderEmptyComponent = () => (
     <View style={{ justifyContent: 'center', alignItems: 'center', paddingVertical: 50 }}>
       <Icon name="image-off" size={48} color="#ccc" />
-      <Text style={{ color: '#666', marginTop: 10 }}>아직 인증 사진이 없습니다.</Text>
-      <Text style={{ color: '#666', fontSize: 12 }}>첫 번째 인증자가 되어보세요!</Text>
+      <Text style={[globalStyles.text, { color: '#666', marginTop: 10 }]}>아직 인증 사진이 없습니다.</Text>
+      <Text style={[globalStyles.text, { color: '#666', fontSize: 12 }]}>첫 번째 인증자가 되어보세요!</Text>
     </View>
   );
 
@@ -212,7 +213,7 @@ export default function ChallengeDetail({ route, navigation }) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#FFF44F" />
-        <Text style={{ marginTop: 10, color: '#666' }}>로딩 중...</Text>
+        <Text style={[globalStyles.text, { marginTop: 10, color: '#666' }]}>로딩 중...</Text>
       </View>
     );
   }
@@ -220,23 +221,23 @@ export default function ChallengeDetail({ route, navigation }) {
   if (error) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={{ color: '#F44336', marginBottom: 10, textAlign: 'center' }}>{error}</Text>
+        <Text style={[globalStyles.text, { color: '#F44336', marginBottom: 10, textAlign: 'center' }]}>{error}</Text>
         <TouchableOpacity
-          style={{ backgroundColor: '#eee', padding: 10, borderRadius: 8 }}
+          style={[globalStyles.button, { backgroundColor: '#eee', padding: 10, borderRadius: 8 }]}
           onPress={() => {
             setError(null);
             setLoading(true);
             fetchVerifications();
           }}
         >
-          <Text>재시도</Text>
+          <Text style={[globalStyles.text, { color: '#000' }]}>재시도</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#fffcf4' }}>
       <FlatList
         data={verifications}
         renderItem={renderVerification}

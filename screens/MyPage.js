@@ -66,9 +66,11 @@ export default function MyPage({ navigation }) {
   const renderChallenge = ({ item }) => (
     <TouchableOpacity 
       style={{ 
-        backgroundColor: '#eee', 
+        backgroundColor: '#FFFFFF', 
         padding: 15, 
-        borderRadius: 8, 
+        borderWidth: 2,
+        borderColor: '#FFE357',
+        borderRadius: 14, 
         marginBottom: 10,
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -77,8 +79,8 @@ export default function MyPage({ navigation }) {
       onPress={() => handleChallengeClick(item)}
     >
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{item.title}</Text>
-        <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+        <Text style={[globalStyles.text, { fontSize: 16, fontWeight: 'bold' }]}>{item.title}</Text>
+        <Text style={[globalStyles.text, { fontSize: 12, color: '#666', marginTop: 2 }]}>
           생성일: {new Date(item.createdAt).toLocaleDateString()}
         </Text>
       </View>
@@ -89,11 +91,11 @@ export default function MyPage({ navigation }) {
         backgroundColor: item.status === '완료' ? '#4CAF50' : 
                         item.status === '실패' ? '#F44336' : '#FFC107'
       }}>
-        <Text style={{ 
+        <Text style={[globalStyles.text, { 
           color: 'white', 
           fontSize: 12, 
           fontWeight: 'bold' 
-        }}>
+        }]}>
           {item.status || '진행중'}
         </Text>
       </View>
@@ -104,7 +106,7 @@ export default function MyPage({ navigation }) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#FFF44F" />
-        <Text style={{ marginTop: 10 }}>로딩 중...</Text>
+        <Text style={[globalStyles.text, { marginTop: 10 }]}>로딩 중...</Text>
       </View>
     );
   }

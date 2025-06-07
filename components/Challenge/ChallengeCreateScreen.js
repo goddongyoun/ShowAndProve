@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import BottomNavBar from '../../navigation/BottomNavBar';
 import { createChallenge } from '../../services/authService';
+import {globalStyles} from '../../utils/styles';
 
 export default function ChallengeCreateScreen({ navigation }) {
   const [challengeName, setChallengeName] = useState('');
@@ -29,30 +30,30 @@ export default function ChallengeCreateScreen({ navigation }) {
   };
 
   return (
-    <View style={{ flex: 1, padding: 20, justifyContent: 'space-between' }}>
+    <View style={[globalStyles.container, { flex: 1, padding: 20, justifyContent: 'space-between' }]}>
       <View>
-        <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>도전과제 생성</Text>
+        <Text style={[globalStyles.text, { fontSize: 24, marginBottom: 20, color: '#5E4636', textAlign: 'center' }]}>도전과제를 생성하세요!</Text>
         
         <TextInput 
           placeholder="도전과제 이름" 
           value={challengeName}
           onChangeText={setChallengeName}
-          style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 8, marginBottom: 10, padding: 10 }} 
+          style={[globalStyles.input, { marginBottom: 10 }]} 
         />
         
         <TextInput 
           placeholder="도전과제 내용" 
           value={challengeContent}
           onChangeText={setChallengeContent}
-          style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 8, marginBottom: 10, padding: 10, height: 100, textAlignVertical: 'top' }} 
+          style={[globalStyles.input, { marginBottom: 10, height: 100, textAlignVertical: 'top' }]} 
           multiline 
         />
         
         <TouchableOpacity 
-          style={{ backgroundColor: '#eee', padding: 15, borderRadius: 8 }} 
+          style={[globalStyles.button, { padding: 15, borderRadius: 8 }]} 
           onPress={handleSubmit}
         >
-          <Text>도전과제 생성</Text>
+          <Text style={[globalStyles.text, { fontSize: 16, color: '#FFFFFF' }]}>도전과제 생성</Text>
         </TouchableOpacity>
       </View>
     </View>
