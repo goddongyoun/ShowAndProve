@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import { globalStyles } from '../utils/styles';
 import BottomNavBar from '../navigation/BottomNavBar';
 import { getCurrentUser } from '../services/authService';
 import { getUserChallenges } from '../services/challengeService';
@@ -109,32 +110,31 @@ export default function MyPage({ navigation }) {
   }
 
   return (
-    <View style={{ flex: 1, padding: 20, justifyContent: 'space-between' }}>
+    <View style={[globalStyles.container, { justifyContent: 'space-between' }]}>
+      {/* 사용자 정보 */}
+      {currentUser && (
+        <View style={{ marginBottom: 20, padding: 15 }}>
+          <Text style={[globalStyles.text, { fontSize: 22, textAlign: 'center', color: '#5E4636' }]}>
+            {currentUser.name}님의 도전과제
+          </Text>
+          <Text style={[globalStyles.text, { fontSize: 14, color: '#CDBCB0', textAlign: 'center' }]}>
+            {currentUser.email}
+          </Text>
+        </View>
+      )}
       <View style={{ flex: 1 }}>
         {/* 통계 섹션 */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>
+          <Text style={[globalStyles.text, { fontSize: 16 }]}>
             달성: {stats.completed}
           </Text>
-          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>
+          <Text style={[globalStyles.text, { fontSize: 16 }]}>
             전체: {stats.total}
           </Text>
-          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>
+          <Text style={[globalStyles.text, { fontSize: 16 }]}>
             미달성: {stats.failed}
           </Text>
         </View>
-
-        {/* 사용자 정보 */}
-        {currentUser && (
-          <View style={{ marginBottom: 20, padding: 15, backgroundColor: '#f9f9f9', borderRadius: 8 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
-              {currentUser.name}님의 도전과제
-            </Text>
-            <Text style={{ fontSize: 14, color: '#666' }}>
-              {currentUser.email}
-            </Text>
-          </View>
-        )}
 
         {/* 도전과제 목록 */}
         {challenges.length > 0 ? (
@@ -146,7 +146,7 @@ export default function MyPage({ navigation }) {
           />
         ) : (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontSize: 16, color: '#666' }}>
+            <Text style={[globalStyles.text, { fontSize: 16, color: '#FF909D' }]}>
               아직 참여한 도전과제가 없습니다.
             </Text>
           </View>
