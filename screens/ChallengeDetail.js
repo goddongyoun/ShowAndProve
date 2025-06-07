@@ -32,6 +32,26 @@ export default function ChallengeDetail({ route, navigation }) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [showImageModal, setShowImageModal] = useState(false);
 
+  /** 환경에 따라 반응형으로 리스트를 1열 / 2열 / 3열... 등으로 맞춤 */
+  const getNumColumns = () => {
+    console.log(screenWidth);
+    if (screenWidth < 480) {
+      return 1;
+    } else if (screenWidth < 768) {
+      return 2;
+    } else if (screenWidth < 1024) {
+      return 3;
+    } else {
+      return 4;
+    }
+  }
+
+  const numColumns = getNumColumns();
+
+  const itemGap = 8; // 아이템 사이 여백
+  const totalSpacing = itemGap * numColumns * 2 + (numColumns > 1 ? 16 : 0); // 좌우 패딩 포함
+  const itemWidth = (screenWidth - totalSpacing) / numColumns;
+
   useEffect(() => {
     const initialize = async () => {
       try {
@@ -107,11 +127,11 @@ export default function ChallengeDetail({ route, navigation }) {
 
     return (
       <View style={{
-        marginVertical: 10,
         backgroundColor: '#f9f9f9',
         padding: 15,
         borderRadius: 8,
-        marginHorizontal: 20
+        width: itemWidth,
+        margin: itemGap,
       }}>
         {item.photo_path && (
           <TouchableOpacity onPress={() => handleImagePress(`${BASE_URL}${item.photo_path}`)}>
@@ -226,10 +246,9 @@ export default function ChallengeDetail({ route, navigation }) {
         ListFooterComponent={renderFooter}
         showsVerticalScrollIndicator={true}
         contentContainerStyle={{ paddingBottom: 100 }}
+        numColumns={numColumns}
         style={{ flex: 1 }}
       />
-
-      <BottomNavBar navigation={navigation} />
 
       <Modal
         visible={showImageModal}

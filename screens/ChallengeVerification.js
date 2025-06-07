@@ -278,9 +278,6 @@ export default function ChallengeVerificationScreen({ route, navigation }) {
           </Text>
         </TouchableOpacity>
       </View>
-      
-      {/* 네비게이션 바 */}
-      <BottomNavBar navigation={navigation} />
     </View>
   );
 }

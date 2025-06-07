@@ -114,7 +114,7 @@ export default function MyPage({ navigation }) {
       {/* 사용자 정보 */}
       {currentUser && (
         <View style={{ marginBottom: 20, padding: 15 }}>
-          <Text style={[globalStyles.text, { fontSize: 22, textAlign: 'center', color: '#5E4636' }]}>
+          <Text style={[globalStyles.text, { fontSize: 22, textAlign: 'center', color: '#5E4636', marginBottom: 6 }]}>
             {currentUser.name}님의 도전과제
           </Text>
           <Text style={[globalStyles.text, { fontSize: 14, color: '#CDBCB0', textAlign: 'center' }]}>
@@ -124,18 +124,33 @@ export default function MyPage({ navigation }) {
       )}
       <View style={{ flex: 1 }}>
         {/* 통계 섹션 */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-          <Text style={[globalStyles.text, { fontSize: 16 }]}>
-            달성: {stats.completed}
-          </Text>
-          <Text style={[globalStyles.text, { fontSize: 16 }]}>
-            전체: {stats.total}
-          </Text>
-          <Text style={[globalStyles.text, { fontSize: 16 }]}>
-            미달성: {stats.failed}
-          </Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 15, marginBottom: 20, alignItems: 'center' }}>
+          <View style={{ borderRadius: 20, backgroundColor: '#5E4636', height: 120, width: 100, justifyContent: 'center', alignItems: 'center', gap: 5, transform: [{ rotate: '-3deg' }] }}>
+            <Text style={[globalStyles.text, { fontSize: 30, color: '#FFFCF4' }]}>
+              {stats.completed}
+            </Text>
+            <Text style={[globalStyles.text, { fontSize: 14, color: '#FFFCF4' }]}>
+              달성
+            </Text>
+          </View>
+          <View style={{ borderRadius: 20, backgroundColor: '#5E4636', height: 150, width: 120, justifyContent: 'center', alignItems: 'center', gap: 5 }}>
+            <Text style={[globalStyles.text, { fontSize: 40, color: '#FFFCF4' }]}>
+              {stats.total}
+            </Text>
+            <Text style={[globalStyles.text, { fontSize: 16, color: '#FFFCF4' }]}>
+              전체
+            </Text>
+          </View>
+          <View style={{ borderRadius: 20, backgroundColor: '#5E4636', height: 120, width: 100, justifyContent: 'center', alignItems: 'center', gap: 5, transform: [{ rotate: '3deg' }] }}>
+            <Text style={[globalStyles.text, { fontSize: 30, color: '#FFFCF4' }]}>
+              {stats.failed}
+            </Text>
+            <Text style={[globalStyles.text, { fontSize: 14, color: '#FFFCF4' }]}>
+              미달성
+            </Text>
+          </View>
         </View>
-
+        
         {/* 도전과제 목록 */}
         {challenges.length > 0 ? (
           <FlatList
@@ -152,9 +167,6 @@ export default function MyPage({ navigation }) {
           </View>
         )}
       </View>
-
-      {/* 네비게이션 바 */}
-      <BottomNavBar navigation={navigation} />
     </View>
   );
 }

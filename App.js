@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import { View, ActivityIndicator } from 'react-native';
 import AppNavigator from './navigation/AppNavigator';
+import BottomNavBar from './navigation/BottomNavBar';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -17,5 +18,12 @@ export default function App() {
     );
   }
 
-  return <AppNavigator />;
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
+        <AppNavigator />
+      </View>
+      <BottomNavBar />
+    </View>
+  );
 }

@@ -55,9 +55,6 @@ export default function ChallengeCreateScreen({ navigation }) {
           <Text>도전과제 생성</Text>
         </TouchableOpacity>
       </View>
-      
-      {/* 네비게이션 바 */}
-      <BottomNavBar navigation={navigation} />
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,6 +13,7 @@ import ChallengeDetail from '../screens/ChallengeDetail';
 import { TouchableOpacity, Text, View, Alert } from 'react-native';
 
 const Stack = createStackNavigator();
+export const navigationRef = createRef();
 
 export default function AppNavigator() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -62,6 +63,7 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       onStateChange={() => {
         // 화면 전환시마다 로그인 상태 체크
         checkLoginStatus();
