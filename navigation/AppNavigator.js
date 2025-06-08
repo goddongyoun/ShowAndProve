@@ -71,28 +71,29 @@ export default function AppNavigator() {
       }}
     >
       <Stack.Navigator
-        initialRouteName="Home"
+        initialRouteName={isLoggedIn ? "Home" : "Login"} // 로그인 상태에 따라 초기 화면 설정
         screenOptions={({ navigation }) => ({
           headerBackImage: () => null,
           headerBackTitleVisible: false,
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Home')}
-                style={{ marginRight: 10, backgroundColor: '#eee', padding: 8, borderRadius: 8 }}
-              >
-                <Text>메인페이지</Text>
-              </TouchableOpacity>
+              {
+        //       <TouchableOpacity
+        //         onPress={() => navigation.navigate('Home')}
+        //         style={{ marginRight: 10, backgroundColor: '#eee', padding: 8, borderRadius: 8 }}
+        //       >
+        //         <Text>메인페이지</Text>
+        //       </TouchableOpacity>
               
-              {isLoggedIn && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('MyPage')}
-                  style={{ marginRight: 10, backgroundColor: '#ccffcc', padding: 8, borderRadius: 8 }}
-                >
-                  <Text>마이페이지</Text>
-                </TouchableOpacity>
-              )}
-              
+        //       {isLoggedIn && (
+        //         <TouchableOpacity
+        //           onPress={() => navigation.navigate('MyPage')}
+        //           style={{ marginRight: 10, backgroundColor: '#ccffcc', padding: 8, borderRadius: 8 }}
+        //         >
+        //           <Text>마이페이지</Text>
+        //         </TouchableOpacity>
+        //       )} // -> 하단 네비게이션 바가 생겼기 때문에 필요 없을것 같아서 로그아웃 버튼 빼고는 주석
+              }
               {isLoggedIn ? (
                 // 로그인된 상태: 로그아웃 버튼
                 <TouchableOpacity
@@ -113,7 +114,7 @@ export default function AppNavigator() {
                 >
                   <Text>로그인</Text>
                 </TouchableOpacity>
-              )}
+              )} // 로그아웃 버튼을 프로필 페이지로 들어가면 보이게 하고싶은데 여긴 지금 제 역량 부족입니다..
             </View>
           ),
         })}

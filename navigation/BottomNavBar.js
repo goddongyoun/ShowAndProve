@@ -10,6 +10,10 @@ export default function BottomNavBar() {
 
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#FFC300' }}>
+      <TouchableOpacity onPress={() => navigate('Leaderboard')} style={{ padding: 10 }}>
+        <Icon name="trophy-variant-outline" size={30} color="#FFFFFF" />
+        {/* <Text>리더보드</Text> */}
+      </TouchableOpacity>
       <TouchableOpacity onPress={() => navigate('Home')} style={{ padding: 10 }}>
         <Icon name="home-outline" size={30} color="#FFFFFF" />
         {/* <Text>메인</Text> */}
@@ -22,9 +26,8 @@ export default function BottomNavBar() {
         <Icon name="account-outline" size={30} color="#FFFFFF" />
         {/* <Text>마이페이지</Text> */}
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigate('Leaderboard')} style={{ padding: 10 }}>
-        <Icon name="trophy-variant-outline" size={30} color="#FFFFFF" />
-        {/* <Text>리더보드</Text> */}
+      <TouchableOpacity onPress={() => navigate('')} style={{ padding: 10 }}>
+        <Icon name="logout-variant" size={30} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );

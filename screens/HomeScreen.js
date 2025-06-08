@@ -108,7 +108,7 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={globalStyles.container}>
-      <Text style={globalStyles.title}>도전과제 목록</Text>
+      <Text style={[globalStyles.title, {color: '#5E4636'}]}>도전과제 목록</Text>
       <FlatList
         data={challenges}
         renderItem={renderChallenge}
