@@ -49,8 +49,8 @@ const LeaderboardScreen = () => {
     fetchLeaderboard();
   }, []);
 
-  const fetchLeaderboard = async () => {
-    try {
+    const fetchLeaderboard = async () => {
+      try {
       setLoading(true);
       
       // 리더보드 데이터, 내 랭킹 정보, 현재 사용자 정보를 병렬로 가져오기
@@ -63,7 +63,7 @@ const LeaderboardScreen = () => {
       console.log('리더보드 데이터:', leaderboardResponse);
       console.log('내 랭킹 데이터:', myRankResponse);
       console.log('현재 사용자:', userResponse);
-      
+        
       setLeaderboardData(leaderboardResponse);
       setMyRank(myRankResponse);
       setCurrentUser(userResponse);
@@ -85,8 +85,8 @@ const LeaderboardScreen = () => {
         setRestUsers(tempRestUsers);
       }
 
-    } catch (error) {
-      console.error('리더보드 조회 오류:', error);
+      } catch (error) {
+        console.error('리더보드 조회 오류:', error);
       // 오류 발생 시 더미 데이터 사용
       const dummyData = [
         { id: '1', email: 'test1', name: '챌린저1', success_count: 20, rank: 1 },
@@ -211,29 +211,29 @@ const LeaderboardScreen = () => {
       />
 
       {myRank && (
-        <View style={styles.myRankContainer}>
+      <View style={styles.myRankContainer}>
           <Text style={[globalStyles.text, {fontSize: 14, color: '#5E4636', textAlign: 'center', marginBottom: 5}]}>
             내 순위
           </Text>
-          <View style={styles.rankItem}>
-            <View style={styles.rankNumberContainer}>
-              <Text style={[globalStyles.text, {fontSize: 18, color: '#666666'}]}>{myRank.rank}</Text>
-            </View>
-            <View style={styles.profileImageContainer}>
-              <View style={[styles.profileImage, styles.defaultProfileImage]}>
-                <Text style={[globalStyles.text, {fontSize: 20, fontWeight: 'bold', color: '#FFFFFF'}]}>
-                  {myRank.name[0]}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.userInfo}>
-              <Text style={[globalStyles.text, {fontSize: 16, color: '#000000'}]}>{myRank.name}</Text>
-              <Text style={[globalStyles.text, {fontSize: 14, color: '#FFC300', fontWeight: '600'}]}>
-                {myRank.completedChallenges}회 완료
+        <View style={styles.rankItem}>
+          <View style={styles.rankNumberContainer}>
+            <Text style={[globalStyles.text, {fontSize: 18, color: '#666666'}]}>{myRank.rank}</Text>
+          </View>
+          <View style={styles.profileImageContainer}>
+            <View style={[styles.profileImage, styles.defaultProfileImage]}>
+              <Text style={[globalStyles.text, {fontSize: 20, fontWeight: 'bold', color: '#FFFFFF'}]}>
+                {myRank.name[0]}
               </Text>
             </View>
           </View>
+          <View style={styles.userInfo}>
+            <Text style={[globalStyles.text, {fontSize: 16, color: '#000000'}]}>{myRank.name}</Text>
+            <Text style={[globalStyles.text, {fontSize: 14, color: '#FFC300', fontWeight: '600'}]}>
+                {myRank.completedChallenges}회 완료
+            </Text>
+          </View>
         </View>
+      </View>
       )}
     </SafeAreaView>
   );

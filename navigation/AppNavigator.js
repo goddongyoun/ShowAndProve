@@ -143,16 +143,16 @@ export default function AppNavigator({ onLoginStateChange }) {
               {isLoggedIn ? (
                 // 로그인된 상태: 로그아웃 버튼 (MyPage에서만 표시)
                 route.name === 'MyPage' ? (
-                  <TouchableOpacity
-                    onPress={() => {
-                      console.log('로그아웃 버튼 클릭됨');
-                      console.log('isLoggedIn 상태:', isLoggedIn);
-                      handleLogout();
-                    }}
-                    style={{ marginRight: 15, backgroundColor: '#ffcccc', padding: 8, borderRadius: 8 }}
-                  >
-                    <Text>로그아웃</Text>
-                  </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    console.log('로그아웃 버튼 클릭됨');
+                    console.log('isLoggedIn 상태:', isLoggedIn);
+                    handleLogout();
+                  }}
+                  style={{ marginRight: 15, backgroundColor: '#ffcccc', padding: 8, borderRadius: 8 }}
+                >
+                  <Text>로그아웃</Text>
+                </TouchableOpacity>
                 ) : null
               ) : (
                 // 로그인 안된 상태: 로그인 버튼
