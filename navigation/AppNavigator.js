@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,9 +10,11 @@ import HomeScreen from '../screens/HomeScreen';
 import ChallengeVerificationScreen from '../screens/ChallengeVerification';
 import MyPage from '../screens/MyPage';
 import ChallengeDetail from '../screens/ChallengeDetail';
+import LeaderboardScreen from '../screens/LeaderboardScreen';
 import { TouchableOpacity, Text, View, Alert } from 'react-native';
 
 const Stack = createStackNavigator();
+export const navigationRef = createRef();
 
 export default function AppNavigator() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -62,34 +64,36 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       onStateChange={() => {
         // 화면 전환시마다 로그인 상태 체크
         checkLoginStatus();
       }}
     >
       <Stack.Navigator
-        initialRouteName="Home"
+        initialRouteName={isLoggedIn ? "Home" : "Login"} // 로그인 상태에 따라 초기 화면 설정
         screenOptions={({ navigation }) => ({
           headerBackImage: () => null,
           headerBackTitleVisible: false,
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Home')}
-                style={{ marginRight: 10, backgroundColor: '#eee', padding: 8, borderRadius: 8 }}
-              >
-                <Text>메인페이지</Text>
-              </TouchableOpacity>
+              {
+        //       <TouchableOpacity
+        //         onPress={() => navigation.navigate('Home')}
+        //         style={{ marginRight: 10, backgroundColor: '#eee', padding: 8, borderRadius: 8 }}
+        //       >
+        //         <Text>메인페이지</Text>
+        //       </TouchableOpacity>
               
-              {isLoggedIn && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('MyPage')}
-                  style={{ marginRight: 10, backgroundColor: '#ccffcc', padding: 8, borderRadius: 8 }}
-                >
-                  <Text>마이페이지</Text>
-                </TouchableOpacity>
-              )}
-              
+        //       {isLoggedIn && (
+        //         <TouchableOpacity
+        //           onPress={() => navigation.navigate('MyPage')}
+        //           style={{ marginRight: 10, backgroundColor: '#ccffcc', padding: 8, borderRadius: 8 }}
+        //         >
+        //           <Text>마이페이지</Text>
+        //         </TouchableOpacity>
+        //       )} // -> 하단 네비게이션 바가 생겼기 때문에 필요 없을것 같아서 로그아웃 버튼 빼고는 주석
+              }
               {isLoggedIn ? (
                 // 로그인된 상태: 로그아웃 버튼
                 <TouchableOpacity
@@ -110,7 +114,7 @@ export default function AppNavigator() {
                 >
                   <Text>로그인</Text>
                 </TouchableOpacity>
-              )}
+              )} // 로그아웃 버튼을 프로필 페이지로 들어가면 보이게 하고싶은데 여긴 지금 제 역량 부족입니다..
             </View>
           ),
         })}
@@ -123,6 +127,13 @@ export default function AppNavigator() {
         <Stack.Screen name="ChallengeVerification" component={ChallengeVerificationScreen} />
         <Stack.Screen name="MyPage" component={MyPage} />
         <Stack.Screen name="ChallengeDetail" component={ChallengeDetail} />
+        <Stack.Screen
+          name="Leaderboard"
+          component={LeaderboardScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

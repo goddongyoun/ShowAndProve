@@ -3,41 +3,55 @@ import { StyleSheet } from 'react-native';
 export const globalStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF', // 화이트 배경
+    backgroundColor: '#fffcf4', // 배경 색
     padding: 20,
-    paddingTop: 40, // 넓은 여백
+    // paddingTop: 20,
   },
   title: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: 'Cafe24Ssurround',
     fontSize: 24,
     color: '#000000',
     marginBottom: 20,
   },
   text: {
-    fontFamily: 'Roboto-Regular',
+    fontFamily: 'Cafe24Ssurround',
     fontSize: 16,
-    color: '#000000',
+    color: '#333333',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#FFD400',
+    borderRadius: 10,
     padding: 12,
     marginBottom: 15,
-    fontFamily: 'Roboto-Regular',
-    fontSize: 16,
-    backgroundColor: '#F9F9F9',
+    fontFamily: 'Cafe24Ssurround',
+    fontSize: 12,
+    backgroundColor: '#FFFFFF',
+    placeholderTextColor: '#FFEB88',
   },
   button: {
-    backgroundColor: '#FFF44F', // 레몬 옐로우 포인트 컬러
+    backgroundColor: '#FFC300', // 메인컬러
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     marginBottom: 15,
   },
   buttonText: {
-    fontFamily: 'Roboto-Medium',
+    fontFamily: 'Cafe24Ssurround',
     fontSize: 16,
-    color: '#000000',
+    color: '#FFFFFF', // 화이트
+  },
+  logo: { //로고 스타일
+    width: 120,
+    height: 120,
+    marginBottom: 4,
+    alignSelf: 'center',
+  },
+  wordmark: { // 워드마크 스타일
+    fontFamily: 'HakgyoansimPuzzle-Black',
+    fontSize: 20,
+    color: '#333333',
+    marginBottom: 20,
+    alignSelf: 'center',
   },
 });

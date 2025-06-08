@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import { globalStyles } from '../utils/styles';
 import BottomNavBar from '../navigation/BottomNavBar';
 import { getCurrentUser } from '../services/authService';
 import { getUserChallenges } from '../services/challengeService';
@@ -65,9 +66,11 @@ export default function MyPage({ navigation }) {
   const renderChallenge = ({ item }) => (
     <TouchableOpacity 
       style={{ 
-        backgroundColor: '#eee', 
+        backgroundColor: '#FFFFFF', 
         padding: 15, 
-        borderRadius: 8, 
+        borderWidth: 2,
+        borderColor: '#FFE357',
+        borderRadius: 14, 
         marginBottom: 10,
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -76,8 +79,8 @@ export default function MyPage({ navigation }) {
       onPress={() => handleChallengeClick(item)}
     >
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{item.title}</Text>
-        <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+        <Text style={[globalStyles.text, { fontSize: 16, fontWeight: 'bold' }]}>{item.title}</Text>
+        <Text style={[globalStyles.text, { fontSize: 12, color: '#666', marginTop: 2 }]}>
           생성일: {new Date(item.createdAt).toLocaleDateString()}
         </Text>
       </View>
@@ -88,11 +91,11 @@ export default function MyPage({ navigation }) {
         backgroundColor: item.status === '완료' ? '#4CAF50' : 
                         item.status === '실패' ? '#F44336' : '#FFC107'
       }}>
-        <Text style={{ 
+        <Text style={[globalStyles.text, { 
           color: 'white', 
           fontSize: 12, 
           fontWeight: 'bold' 
-        }}>
+        }]}>
           {item.status || '진행중'}
         </Text>
       </View>
@@ -103,39 +106,53 @@ export default function MyPage({ navigation }) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#FFF44F" />
-        <Text style={{ marginTop: 10 }}>로딩 중...</Text>
+        <Text style={[globalStyles.text, { marginTop: 10 }]}>로딩 중...</Text>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, padding: 20, justifyContent: 'space-between' }}>
-      <View style={{ flex: 1 }}>
-        {/* 통계 섹션 */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>
-            달성: {stats.completed}
+    <View style={[globalStyles.container, { justifyContent: 'space-between' }]}>
+      {/* 사용자 정보 */}
+      {currentUser && (
+        <View style={{ marginBottom: 20, padding: 15 }}>
+          <Text style={[globalStyles.text, { fontSize: 22, textAlign: 'center', color: '#5E4636', marginBottom: 6 }]}>
+            {currentUser.name}님의 도전과제
           </Text>
-          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>
-            전체: {stats.total}
-          </Text>
-          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>
-            미달성: {stats.failed}
+          <Text style={[globalStyles.text, { fontSize: 14, color: '#CDBCB0', textAlign: 'center' }]}>
+            {currentUser.email}
           </Text>
         </View>
-
-        {/* 사용자 정보 */}
-        {currentUser && (
-          <View style={{ marginBottom: 20, padding: 15, backgroundColor: '#f9f9f9', borderRadius: 8 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
-              {currentUser.name}님의 도전과제
+      )}
+      <View style={{ flex: 1 }}>
+        {/* 통계 섹션 */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 15, marginBottom: 20, alignItems: 'center' }}>
+          <View style={{ borderRadius: 20, backgroundColor: '#5E4636', height: 120, width: 100, justifyContent: 'center', alignItems: 'center', gap: 5, transform: [{ rotate: '-3deg' }] }}>
+            <Text style={[globalStyles.text, { fontSize: 30, color: '#FFFCF4' }]}>
+              {stats.completed}
             </Text>
-            <Text style={{ fontSize: 14, color: '#666' }}>
-              {currentUser.email}
+            <Text style={[globalStyles.text, { fontSize: 14, color: '#FFFCF4' }]}>
+              달성
             </Text>
           </View>
-        )}
-
+          <View style={{ borderRadius: 20, backgroundColor: '#5E4636', height: 150, width: 120, justifyContent: 'center', alignItems: 'center', gap: 5 }}>
+            <Text style={[globalStyles.text, { fontSize: 40, color: '#FFFCF4' }]}>
+              {stats.total}
+            </Text>
+            <Text style={[globalStyles.text, { fontSize: 16, color: '#FFFCF4' }]}>
+              전체
+            </Text>
+          </View>
+          <View style={{ borderRadius: 20, backgroundColor: '#5E4636', height: 120, width: 100, justifyContent: 'center', alignItems: 'center', gap: 5, transform: [{ rotate: '3deg' }] }}>
+            <Text style={[globalStyles.text, { fontSize: 30, color: '#FFFCF4' }]}>
+              {stats.failed}
+            </Text>
+            <Text style={[globalStyles.text, { fontSize: 14, color: '#FFFCF4' }]}>
+              미달성
+            </Text>
+          </View>
+        </View>
+        
         {/* 도전과제 목록 */}
         {challenges.length > 0 ? (
           <FlatList
@@ -146,15 +163,12 @@ export default function MyPage({ navigation }) {
           />
         ) : (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontSize: 16, color: '#666' }}>
+            <Text style={[globalStyles.text, { fontSize: 16, color: '#FF909D' }]}>
               아직 참여한 도전과제가 없습니다.
             </Text>
           </View>
         )}
       </View>
-
-      {/* 네비게이션 바 */}
-      <BottomNavBar navigation={navigation} />
     </View>
   );
 }

@@ -2,12 +2,12 @@ import 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import { View, ActivityIndicator } from 'react-native';
 import AppNavigator from './navigation/AppNavigator';
+import BottomNavBar from './navigation/BottomNavBar';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    'Roboto-Regular': require('./assets/fonts/Roboto-Regular.ttf'),
-    'Roboto-Medium': require('./assets/fonts/Roboto-Medium.ttf'),
-    'Poppins-Bold': require('./assets/fonts/Poppins-Bold.ttf'),
+    'Cafe24Ssurround': require('./assets/fonts/Cafe24Ssurround.ttf'),
+    'HakgyoansimPuzzle-Black': require('./assets/fonts/HakgyoansimPuzzle-Black.ttf'),
   });
 
   if (!fontsLoaded) {
@@ -18,5 +18,12 @@ export default function App() {
     );
   }
 
-  return <AppNavigator />;
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
+        <AppNavigator />
+      </View>
+      <BottomNavBar />
+    </View>
+  );
 }

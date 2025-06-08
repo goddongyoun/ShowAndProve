@@ -108,20 +108,20 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={globalStyles.container}>
-      <Text style={globalStyles.title}>도전과제 목록</Text>
+      <Text style={[globalStyles.title, {color: '#5E4636'}]}>도전과제 목록</Text>
       <FlatList
         data={challenges}
         renderItem={renderChallenge}
         keyExtractor={item => item._id}
         style={{ marginBottom: 20 }}
       />
-      <TouchableOpacity
+      {/* <TouchableOpacity
         style={[globalStyles.button, { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }]}
         onPress={handleCreateChallenge} // 변경된 부분
       >
         <Icon name="plus" size={20} color="#000" style={{ marginRight: 5 }} />
         <Text style={globalStyles.buttonText}>새 도전과제 만들기</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> // 하단 네비게이션바에 도전과제 생성 기능 존재함 그래서 일단 주석함 */} 
     </View>
   );
 }
