@@ -1,21 +1,44 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
 import { globalStyles } from '../../utils/styles';
 import { loginUser } from '../../services/authService';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, route }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // AppNavigator에서 전달받은 로그인 성공 콜백
+  const onLoginSuccess = route?.params?.onLoginSuccess;
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('입력 오류', '이메일과 비밀번호를 모두 입력해주세요.');
+      return;
+    }
+
     try {
+      setLoading(true);
       const response = await loginUser(email, password);
       console.log('Login Successful:', response);
-      navigation.navigate('Home');
+      
+      // 로그인 성공 시 상태 업데이트
+      if (onLoginSuccess) {
+        onLoginSuccess(true);
+      }
+      
+      // 홈 화면으로 이동
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
+      
     } catch (error) {
-      console.error('Login Failed:', error.message);
-      alert(error.message);
+      console.error('Login Error:', error);
+      Alert.alert('로그인 실패', error.message || '로그인에 실패했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -30,6 +53,7 @@ export default function LoginScreen({ navigation }) {
         style={globalStyles.input}
         keyboardType="email-address"
         autoCapitalize="none"
+        editable={!loading}
       />
       <TextInput
         placeholder="비밀번호"
@@ -37,11 +61,21 @@ export default function LoginScreen({ navigation }) {
         onChangeText={setPassword}
         style={globalStyles.input}
         secureTextEntry
+        editable={!loading}
       />
-      <TouchableOpacity style={globalStyles.button} onPress={handleLogin}>
-        <Text style={globalStyles.buttonText}>로그인</Text>
+      <TouchableOpacity
+        style={[globalStyles.button, loading && { opacity: 0.6 }]} 
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        <Text style={globalStyles.buttonText}>
+          {loading ? '로그인 중...' : '로그인'}
+        </Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('Register')}
+        disabled={loading}
+      >
         <Text style={[globalStyles.text, { color: '#FFD400', textAlign: 'center', textDecorationLine: 'underline' }]}>
           계정이 없으신가요? 회원가입
         </Text>
