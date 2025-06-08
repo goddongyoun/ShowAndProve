@@ -24,29 +24,29 @@ export default function MyPage({ navigation, route }) {
     initialize();
   }, []);
 
-  const initialize = async () => {
-    try {
-      console.log('MyPage 초기화 시작...');
-      const user = await getCurrentUser();
-      console.log('Current User in MyPage:', user);
+    const initialize = async () => {
+      try {
+        console.log('MyPage 초기화 시작...');
+        const user = await getCurrentUser();
+        console.log('Current User in MyPage:', user);
       
       if (user) {
         setCurrentUser(user);
         // fetchUserChallenges 내에서 통계도 함께 계산하므로 하나만 호출
-        await fetchUserChallenges(user.email);
+          await fetchUserChallenges(user.email);
       } else {
         // 사용자 정보가 없으면 로그인 화면으로 이동
         console.log('사용자 정보가 없습니다. 로그인 화면으로 이동합니다.');
         navigation.navigate('Login');
-      }
-    } catch (error) {
-      console.error('MyPage 초기화 오류:', error);
+        }
+      } catch (error) {
+        console.error('MyPage 초기화 오류:', error);
       Alert.alert('오류', '사용자 정보를 불러오는데 실패했습니다.');
-    } finally {
-      setLoading(false);
+      } finally {
+        setLoading(false);
       setRefreshing(false);
-    }
-  };
+      }
+    };
 
   const fetchUserChallenges = async (userEmail) => {
     try {
@@ -128,7 +128,7 @@ export default function MyPage({ navigation, route }) {
       const confirmed = window.confirm('정말 로그아웃하시겠습니까?');
       if (confirmed) {
         await performLogout();
-      }
+    }
     } else {
       // 모바일에서는 React Native Alert 사용
       Alert.alert(
