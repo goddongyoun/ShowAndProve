@@ -11,6 +11,13 @@
  * getMyInfo -> 이건 마이페이지랑 겹치니까 같이 쓰면 될듯
  */
 
+/** 
+ * 리더보드 점수 산출 기준:
+ * - 완료한 도전과제 수 기준으로 랭킹 결정
+ * - 같은 완료 수일 경우 최근 완료 시간 기준으로 순위 결정
+ * - 실시간 업데이트되는 랭킹 시스템
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -20,50 +27,50 @@ import {
   Image,
   SafeAreaView,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import {globalStyles} from '../utils/styles';
-
-// 임시 데이터 (나중에 백엔드에서 받아올 데이터 형식)
-const dummyData = [
-  { id: '1', email: 'test1', name: '챌린저1', success_count: 20, rank: 1 },
-  { id: '2', email: 'test2', name: '챌린저2', success_count: 18, rank: 2 },
-  { id: '3', email: 'test3', name: '챌린저3', success_count: 17, rank: 3 },
-  { id: '4', email: 'test4', name: '챌린저4', success_count: 12, rank: 4 },
-  { id: '5', email: 'test5', name: '챌린저5', success_count: 7, rank: 5 },
-  { id: '6', email: 'test6', name: '챌린저6', success_count: 7, rank: 6 },
-  { id: '7', email: 'test7', name: '챌린저7', success_count: 7, rank: 7 },
-  { id: '8', email: 'test8', name: '챌린저8', success_count: 7, rank: 8 },
-  { id: '9', email: 'test9', name: '챌린저9', success_count: 7, rank: 9 },
-  { id: '10', email: 'test10', name: '챌린저10', success_count: 7, rank: 10 },
-];
-
-const dummyMyRank = { id: '6', email: 'test6', name: '나', success_count: 5, rank: 8 };
+import { getLeaderboard, getMyRank } from '../services/challengeService';
+import { getCurrentUser } from '../services/authService';
 
 const windowWidth = Dimensions.get('window').width;
 
 const LeaderboardScreen = () => {
-  // 상위 3등과 나머지 분리
   const [topThree, setTopThree] = useState([]);
   const [restUsers, setRestUsers] = useState([]);
   const [leaderboardData, setLeaderboardData] = useState([]);
-  const [myRank, setMyRank] = useState(dummyMyRank);
+  const [myRank, setMyRank] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
-      try {
-        // const response = await api.get('/users/leaderboard');
-        // const data = response.data;
+    fetchLeaderboard();
+  }, []);
 
-        // const responseMyRank = dummyMyRank;
-        // const dataMyRank = responseMyRank.data;
-        
-        const data = dummyData;
-        const dataMyRank = dummyMyRank;
-        
-        setLeaderboardData(data);
-        setMyRank(dataMyRank);
+  const fetchLeaderboard = async () => {
+    try {
+      setLoading(true);
+      
+      // 리더보드 데이터, 내 랭킹 정보, 현재 사용자 정보를 병렬로 가져오기
+      const [leaderboardResponse, myRankResponse, userResponse] = await Promise.all([
+        getLeaderboard().catch(() => []), // 실패 시 빈 배열 반환
+        getMyRank().catch(() => null), // 실패 시 null 반환
+        getCurrentUser().catch(() => null), // 실패 시 null 반환
+      ]);
+      
+      console.log('리더보드 데이터:', leaderboardResponse);
+      console.log('내 랭킹 데이터:', myRankResponse);
+      console.log('현재 사용자:', userResponse);
+      
+      setLeaderboardData(leaderboardResponse);
+      setMyRank(myRankResponse);
+      setCurrentUser(userResponse);
 
-        const tempTopThree = data.slice(0, 3).sort((a, b) => {
+      // 상위 3등 분리 및 정렬 (2등, 1등, 3등 순서로 표시)
+      if (leaderboardResponse.length > 0) {
+        const tempTopThree = leaderboardResponse.slice(0, 3).sort((a, b) => {
           if (a.rank === 2) return -1;
           if (b.rank === 2) return 1;
           if (a.rank === 1) return 0;
@@ -71,32 +78,45 @@ const LeaderboardScreen = () => {
           return a.rank - b.rank;
         });
 
-        const tempRestUsers = data.slice(3);
+        // 1~10등까지 모두 표시 (상위 10등 제한)
+        const tempRestUsers = leaderboardResponse.slice(0, 10);
 
         setTopThree(tempTopThree);
         setRestUsers(tempRestUsers);
-
-      } catch (error) {
-        console.error('리더보드 조회 오류:', error);
       }
-    };
+
+    } catch (error) {
+      console.error('리더보드 조회 오류:', error);
+      // 오류 발생 시 더미 데이터 사용
+      const dummyData = [
+        { id: '1', email: 'test1', name: '챌린저1', success_count: 20, rank: 1 },
+        { id: '2', email: 'test2', name: '챌린저2', success_count: 18, rank: 2 },
+        { id: '3', email: 'test3', name: '챌린저3', success_count: 17, rank: 3 },
+        { id: '4', email: 'test4', name: '챌린저4', success_count: 12, rank: 4 },
+        { id: '5', email: 'test5', name: '챌린저5', success_count: 7, rank: 5 },
+      ];
+      const dummyMyRank = { id: '6', email: 'test6', name: '나', success_count: 5, rank: 8 };
+      
+      setLeaderboardData(dummyData);
+      setMyRank(dummyMyRank);
+      setTopThree(dummyData.slice(0, 3));
+      setRestUsers(dummyData.slice(3));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
     fetchLeaderboard();
-  }, []);
-  
-  // 임시 내 정보 (나중에 실제 사용자 정보로 대체)
-  // const myRank = { id: '6', email: 'test6', name: '나', success_count: 5, rank: 8 };
+  };
 
   const renderTopThree = () => (
     <View style={{flexDirection: 'row', justifyContent: 'center', gap: 15, height: 180, marginBottom: 20, alignItems: 'center'}}>
-      {topThree.map((item) => (
+      {topThree.map((item, index) => (
         <View 
-          key={item.id} 
-          // style={[
-          //   styles.topThreeItem,
-          //   item.rank === 1 && styles.firstPlace,
-          //   item.rank === 2 && styles.secondPlace,
-          //   item.rank === 3 && styles.thirdPlace,
-          // ]}
+          key={`top-${item.email}-${index}`} 
           style={[
             {
               alignItems: 'center',
@@ -107,15 +127,12 @@ const LeaderboardScreen = () => {
             }
           ]}
         >
-          <View style={[styles.crown, item.rank === 1 && {
-          }]}>
+          <View style={styles.crown}>
             <Text style={[globalStyles.text, styles.crownText]}>
               {item.rank === 1 ? '👑' : item.rank === 2 ? '🥈' : '🥉'}
             </Text>
           </View>
-          <View 
-            style={styles.profileImageContainer}
-          >
+          <View style={styles.profileImageContainer}>
             <View style={[styles.topThreeProfileImage, styles.defaultProfileImage]}>
               <Text style={[globalStyles.text, {fontSize: 24, fontWeight: 'bold', color: '#FFFFFF'}]}>
                 {item.name[0]}
@@ -126,7 +143,7 @@ const LeaderboardScreen = () => {
             {item.name}
           </Text>
           <Text style={[globalStyles.text, {fontSize: 14, color: '#FFC300', fontWeight: '600'}]}>
-            {item.success_count}회
+            {item.completedChallenges}회 완료
           </Text>
         </View>
       ))}
@@ -148,50 +165,76 @@ const LeaderboardScreen = () => {
       <View style={styles.userInfo}>
         <Text style={[globalStyles.text, {fontSize: 16, color: '#000000'}]}>{item.name}</Text>
         <Text style={[globalStyles.text, {fontSize: 14, color: '#FFC300', fontWeight: '600'}]}>
-          {item.success_count}회
+          {item.completedChallenges}회 완료
         </Text>
       </View>
     </View>
   );
 
+  if (loading) {
+    return (
+      <SafeAreaView style={[globalStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#FFF44F" />
+        <Text style={[globalStyles.text, { marginTop: 10, color: '#5E4636' }]}>
+          리더보드 로딩 중...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={globalStyles.container}>
       <View style={{padding: 20}}>
-        <Text style={[globalStyles.text, {fontSize: 24, marginBottom: 15, color: '#5E4636', textAlign: 'center'}]}>
+        <Text style={[globalStyles.text, {fontSize: 24, marginBottom: 10, color: '#5E4636', textAlign: 'center'}]}>
           리더보드
+        </Text>
+        <Text style={[globalStyles.text, {fontSize: 12, color: '#CDBCB0', textAlign: 'center', marginBottom: 15}]}>
+          완료한 도전과제 수 기준 랭킹
         </Text>
       </View>
 
-      {renderTopThree()}
+      {topThree.length > 0 && renderTopThree()}
 
       <FlatList
         data={restUsers}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.email}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#FFF44F']}
+          />
+        }
       />
 
-      <View style={styles.myRankContainer}>
-        <View style={styles.rankItem}>
-          <View style={styles.rankNumberContainer}>
-            <Text style={[globalStyles.text, {fontSize: 18, color: '#666666'}]}>{myRank.rank}</Text>
-          </View>
-          <View style={styles.profileImageContainer}>
-            <View style={[styles.profileImage, styles.defaultProfileImage]}>
-              <Text style={[globalStyles.text, {fontSize: 20, fontWeight: 'bold', color: '#FFFFFF'}]}>
-                {myRank.name[0]}
+      {myRank && (
+        <View style={styles.myRankContainer}>
+          <Text style={[globalStyles.text, {fontSize: 14, color: '#5E4636', textAlign: 'center', marginBottom: 5}]}>
+            내 순위
+          </Text>
+          <View style={styles.rankItem}>
+            <View style={styles.rankNumberContainer}>
+              <Text style={[globalStyles.text, {fontSize: 18, color: '#666666'}]}>{myRank.rank}</Text>
+            </View>
+            <View style={styles.profileImageContainer}>
+              <View style={[styles.profileImage, styles.defaultProfileImage]}>
+                <Text style={[globalStyles.text, {fontSize: 20, fontWeight: 'bold', color: '#FFFFFF'}]}>
+                  {myRank.name[0]}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={[globalStyles.text, {fontSize: 16, color: '#000000'}]}>{myRank.name}</Text>
+              <Text style={[globalStyles.text, {fontSize: 14, color: '#FFC300', fontWeight: '600'}]}>
+                {myRank.completedChallenges}회 완료
               </Text>
             </View>
           </View>
-          <View style={styles.userInfo}>
-            <Text style={[globalStyles.text, {fontSize: 16, color: '#000000'}]}>{myRank.name}</Text>
-            <Text style={[globalStyles.text, {fontSize: 14, color: '#FFC300', fontWeight: '600'}]}>
-              {myRank.success_count}회
-            </Text>
-          </View>
         </View>
-      </View>
+      )}
     </SafeAreaView>
   );
 };

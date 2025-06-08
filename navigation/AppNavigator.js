@@ -16,8 +16,19 @@ import { TouchableOpacity, Text, View, Alert } from 'react-native';
 const Stack = createStackNavigator();
 export const navigationRef = createRef();
 
-export default function AppNavigator() {
+// 로그인이 필요한 화면들 목록
+const PROTECTED_SCREENS = ['Home', 'ChallengeCreate', 'ChallengeList', 'ChallengeVerification', 'MyPage', 'ChallengeDetail', 'Leaderboard'];
+
+// 헤더 표시 제어 변수 (true로 변경하면 헤더가 보임)
+const SHOW_HEADER = false;
+
+export default function AppNavigator({ onLoginStateChange }) {
+  // MyPage 래퍼 컴포넌트 (AppNavigator 함수 내부로 이동)
+  const MyPageWrapper = (props) => {
+    return <MyPage {...props} route={{...props.route, params: {...props.route.params, onLoginStateChange}}} />;
+  };
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // 앱 시작시 토큰 확인
   useEffect(() => {
@@ -28,17 +39,31 @@ export default function AppNavigator() {
     console.log('checkLoginStatus 함수 실행');
     try {
       const token = await AsyncStorage.getItem('token');
+      const user = await AsyncStorage.getItem('user');
       console.log('저장된 토큰:', token ? '있음' : '없음');
-      const loginState = !!token;
+      console.log('저장된 사용자:', user ? '있음' : '없음');
+      
+      // 토큰과 사용자 정보가 모두 있어야 로그인 상태로 인정
+      const loginState = !!(token && user);
       console.log('로그인 상태 설정:', loginState);
-      setIsLoggedIn(loginState); // token이 있으면 true, 없으면 false
+      setIsLoggedIn(loginState);
+      
+      // App.js로 로그인 상태 전달
+      if (onLoginStateChange) {
+        onLoginStateChange(loginState);
+      }
     } catch (error) {
       console.error('토큰 확인 오류:', error);
       setIsLoggedIn(false);
+      if (onLoginStateChange) {
+        onLoginStateChange(false);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // 로그아웃 처리 (Alert 없이 바로 로그아웃)
+  // 로그아웃 처리
   const handleLogout = async () => {
     console.log('handleLogout 함수 호출됨');
     
@@ -46,66 +71,89 @@ export default function AppNavigator() {
       await AsyncStorage.removeItem('token');
       await AsyncStorage.removeItem('user');
       setIsLoggedIn(false);
+      
+      // App.js로 로그인 상태 전달
+      if (onLoginStateChange) {
+        onLoginStateChange(false);
+      }
+      
       console.log('로그아웃 완료');
       
-      // 새로고침
-      if (typeof window !== 'undefined' && window.location) {
-        window.location.reload();
-      }
+      // 로그인 화면으로 이동
+      navigationRef.current?.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
     } catch (error) {
       console.error('로그아웃 오류:', error);
     }
   };
 
-  // 로그인 성공 후 호출할 함수 (필요시 사용)
+  // 로그인 성공 후 호출할 함수
   const onLoginSuccess = () => {
     setIsLoggedIn(true);
+    // App.js로 로그인 상태 전달
+    if (onLoginStateChange) {
+      onLoginStateChange(true);
+    }
   };
+
+  // 보호된 화면 접근 시 로그인 체크
+  const checkAuthBeforeNavigation = (routeName) => {
+    if (PROTECTED_SCREENS.includes(routeName) && !isLoggedIn) {
+      navigationRef.current?.navigate('Login');
+      return false;
+    }
+    return true;
+  };
+
+  // 헤더 표시 여부 결정 (로그인/회원가입 화면에서는 숨김)
+  const shouldShowHeader = (routeName) => {
+    if (!SHOW_HEADER) return false; // 전역 헤더 숨김 설정
+    return !['Login', 'Register'].includes(routeName);
+  };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>로딩 중...</Text>
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer
       ref={navigationRef}
-      onStateChange={() => {
-        // 화면 전환시마다 로그인 상태 체크
-        checkLoginStatus();
+      onStateChange={(state) => {
+        // 현재 화면이 보호된 화면인지 확인
+        const currentRoute = state?.routes[state.index];
+        if (currentRoute && PROTECTED_SCREENS.includes(currentRoute.name) && !isLoggedIn) {
+          navigationRef.current?.navigate('Login');
+        }
       }}
     >
       <Stack.Navigator
-        initialRouteName={isLoggedIn ? "Home" : "Login"} // 로그인 상태에 따라 초기 화면 설정
-        screenOptions={({ navigation }) => ({
+        initialRouteName={isLoggedIn ? "Home" : "Login"}
+        screenOptions={({ route, navigation }) => ({
           headerBackImage: () => null,
           headerBackTitleVisible: false,
-          headerRight: () => (
+          headerShown: shouldShowHeader(route.name),
+          headerRight: () => shouldShowHeader(route.name) ? (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {
-        //       <TouchableOpacity
-        //         onPress={() => navigation.navigate('Home')}
-        //         style={{ marginRight: 10, backgroundColor: '#eee', padding: 8, borderRadius: 8 }}
-        //       >
-        //         <Text>메인페이지</Text>
-        //       </TouchableOpacity>
-              
-        //       {isLoggedIn && (
-        //         <TouchableOpacity
-        //           onPress={() => navigation.navigate('MyPage')}
-        //           style={{ marginRight: 10, backgroundColor: '#ccffcc', padding: 8, borderRadius: 8 }}
-        //         >
-        //           <Text>마이페이지</Text>
-        //         </TouchableOpacity>
-        //       )} // -> 하단 네비게이션 바가 생겼기 때문에 필요 없을것 같아서 로그아웃 버튼 빼고는 주석
-              }
               {isLoggedIn ? (
-                // 로그인된 상태: 로그아웃 버튼
-                <TouchableOpacity
-                  onPress={() => {
-                    console.log('로그아웃 버튼 클릭됨');
-                    console.log('isLoggedIn 상태:', isLoggedIn);
-                    handleLogout();
-                  }}
-                  style={{ marginRight: 15, backgroundColor: '#ffcccc', padding: 8, borderRadius: 8 }}
-                >
-                  <Text>로그아웃</Text>
-                </TouchableOpacity>
+                // 로그인된 상태: 로그아웃 버튼 (MyPage에서만 표시)
+                route.name === 'MyPage' ? (
+                  <TouchableOpacity
+                    onPress={() => {
+                      console.log('로그아웃 버튼 클릭됨');
+                      console.log('isLoggedIn 상태:', isLoggedIn);
+                      handleLogout();
+                    }}
+                    style={{ marginRight: 15, backgroundColor: '#ffcccc', padding: 8, borderRadius: 8 }}
+                  >
+                    <Text>로그아웃</Text>
+                  </TouchableOpacity>
+                ) : null
               ) : (
                 // 로그인 안된 상태: 로그인 버튼
                 <TouchableOpacity
@@ -114,18 +162,25 @@ export default function AppNavigator() {
                 >
                   <Text>로그인</Text>
                 </TouchableOpacity>
-              )} // 로그아웃 버튼을 프로필 페이지로 들어가면 보이게 하고싶은데 여긴 지금 제 역량 부족입니다..
+              )}
             </View>
-          ),
+          ) : null,
         })}
       >
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen 
+          name="Login" 
+          component={LoginScreen}
+          initialParams={{ onLoginSuccess }}
+        />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="ChallengeCreate" component={ChallengeCreateScreen} />
         <Stack.Screen name="ChallengeList" component={ChallengeListScreen} />
         <Stack.Screen name="ChallengeVerification" component={ChallengeVerificationScreen} />
-        <Stack.Screen name="MyPage" component={MyPage} />
+        <Stack.Screen 
+          name="MyPage" 
+          component={MyPageWrapper}
+        />
         <Stack.Screen name="ChallengeDetail" component={ChallengeDetail} />
         <Stack.Screen
           name="Leaderboard"
