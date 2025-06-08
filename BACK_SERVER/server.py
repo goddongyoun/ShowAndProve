@@ -21,6 +21,11 @@ import datetime
 from functools import wraps
 import os
 from werkzeug.utils import secure_filename
+import base64
+import io
+from PIL import Image
+from app_umai import find_postit  # 기존 함수 그대로 사용
+
 
 app = Flask(__name__)
 CORS(app)
@@ -592,6 +597,75 @@ def get_user_challenges(user_email):
     except Exception as e:
         print(f"Error in get_user_challenges: {str(e)}")
         return jsonify({"message": str(e)}), 500
+
+@app.route('/api/detect-postit', methods=['POST'])
+@token_required
+def detect_postit_endpoint(current_user):
+    """
+    포스트잇 검출 API
+    app_umai.py의 find_postit 함수를 그대로 활용
+    """
+    try:
+        data = request.get_json()
+        image_base64 = data.get('image')
+        
+        if not image_base64:
+            return jsonify({
+                'success': False,
+                'message': '이미지 데이터가 필요합니다.'
+            }), 400
+        
+        # Base64를 PIL Image로 변환
+        try:
+            # "data:image/jpeg;base64," 제거
+            if ',' in image_base64:
+                image_base64 = image_base64.split(',')[1]
+            
+            # Base64 디코딩
+            image_data = base64.b64decode(image_base64)
+            pil_image = Image.open(io.BytesIO(image_data))
+            
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': f'이미지 변환 오류: {str(e)}'
+            }), 400
+        
+        # 기존 app_umai.py의 find_postit 함수 사용
+        try:
+            postit_roi = find_postit(pil_image)
+            
+            if postit_roi is None:
+                return jsonify({
+                    'success': False,
+                    'message': '포스트잇을 찾지 못했습니다.',
+                    'postit_found': False
+                })
+            
+            # 검출된 포스트잇 영역을 다시 Base64로 변환
+            buffer = io.BytesIO()
+            postit_roi.save(buffer, format='JPEG', quality=90)
+            postit_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            
+            return jsonify({
+                'success': True,
+                'message': '포스트잇 검출 성공',
+                'postit_found': True,
+                'postit_image': f'data:image/jpeg;base64,{postit_base64}'
+            })
+            
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': f'포스트잇 검출 오류: {str(e)}',
+                'postit_found': False
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'서버 오류: {str(e)}'
+        }), 500
 
 # 기본 루트
 @app.route('/')
