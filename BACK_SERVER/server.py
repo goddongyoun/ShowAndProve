@@ -336,18 +336,6 @@ def submit_to_challenge(current_user, challenge_id):
             cursor.close()
             connection.close()
             return jsonify({'error': '존재하지 않는 도전과제입니다'}), 404
-        
-        # 이미 참여했는지 확인
-        #cursor.execute("""
-        #    SELECT id FROM challenge_submissions 
-        #    WHERE challenge_id = %s AND user_email = %s
-        #""", (challenge_id, current_user['email']))
-        #
-        #if cursor.fetchone():
-        #   cursor.close()
-        #   connection.close()
-        #   return jsonify({'error': '이미 이 도전과제에 참여하셨습니다'}), 400
-        
         photo_path = None
         
         # 사진 파일 처리
