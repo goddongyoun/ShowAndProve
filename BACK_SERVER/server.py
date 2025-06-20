@@ -27,6 +27,30 @@ from PIL import Image
 from app_umai import find_postit  # 기존 함수 그대로 사용
 
 
+# 메모리 기반 알림 저장소
+notification_store = {}
+# 구조: {'user_email@example.com': [notification1, notification2, ...]}
+
+def add_notification(user_email, notification_data):
+    """
+    특정 사용자에게 알림 추가
+    """
+    if user_email not in notification_store:
+        notification_store[user_email] = []
+    
+    notification_store[user_email].append(notification_data)
+    print(f"📢 알림 추가: {user_email} -> {notification_data}")
+
+def get_and_clear_notifications(user_email):
+    """
+    사용자의 알림을 가져오고 메모리에서 삭제
+    """
+    notifications = notification_store.get(user_email, [])
+    if user_email in notification_store:
+        del notification_store[user_email]
+        print(f"🗑️  알림 전송 후 삭제: {user_email} ({len(notifications)}개)")
+    return notifications
+
 app = Flask(__name__)
 CORS(app)
 
@@ -336,6 +360,7 @@ def submit_to_challenge(current_user, challenge_id):
             cursor.close()
             connection.close()
             return jsonify({'error': '존재하지 않는 도전과제입니다'}), 404
+        
         photo_path = None
         
         # 사진 파일 처리
@@ -365,13 +390,63 @@ def submit_to_challenge(current_user, challenge_id):
         ))
         connection.commit()
         submission_id = cursor.lastrowid
+        
+        # 🔔 알림 생성 로직 추가
+        # 알림을 위해 도전과제 정보 조회
+        cursor.execute("SELECT title, creator, creator_name FROM challenges WHERE id = %s", (challenge_id,))
+        challenge = cursor.fetchone()
+        
+        # 1. 도전과제 생성자에게 알림 (본인이 아닌 경우)
+        if challenge['creator'] != current_user['email']:
+            creator_notification = {
+                'type': 'new_submission',
+                'title': '새로운 인증 사진!',
+                'message': f'{current_user["name"]}님이 "{challenge["title"]}" 도전과제에 인증 사진을 올렸습니다.',
+                'challenge_id': challenge_id,
+                'challenge_title': challenge['title'],
+                'submitter_name': current_user['name'],
+                'submitter_email': current_user['email'],
+                'photo_path': photo_path,
+                'comment': comment,
+                'timestamp': datetime.datetime.now().isoformat()
+            }
+            add_notification(challenge['creator'], creator_notification)
+        
+        # 2. 해당 도전과제에 참여한 다른 사람들에게도 알림
+        cursor.execute("""
+            SELECT DISTINCT user_email, user_name 
+            FROM challenge_submissions 
+            WHERE challenge_id = %s AND user_email != %s
+        """, (challenge_id, current_user['email']))
+        
+        other_participants = cursor.fetchall()
+        
+        for participant in other_participants:
+            participant_notification = {
+                'type': 'peer_submission',
+                'title': '동료의 새 인증!',
+                'message': f'{current_user["name"]}님이 "{challenge["title"]}" 도전과제에 새로운 인증을 올렸습니다.',
+                'challenge_id': challenge_id,
+                'challenge_title': challenge['title'],
+                'submitter_name': current_user['name'],
+                'submitter_email': current_user['email'],
+                'photo_path': photo_path,
+                'comment': comment,
+                'timestamp': datetime.datetime.now().isoformat()
+            }
+            add_notification(participant['user_email'], participant_notification)
+        
         cursor.close()
         connection.close()
         
         return jsonify({
             'message': '도전과제 참여가 완료되었습니다',
             'submission_id': submission_id,
-            'photo_path': photo_path
+            'photo_path': photo_path,
+            'notifications_sent': {
+                'creator': challenge['creator'] if challenge['creator'] != current_user['email'] else None,
+                'participants': len(other_participants)
+            }
         }), 201
         
     except Exception as e:
@@ -655,6 +730,105 @@ def detect_postit_endpoint(current_user):
             'message': f'서버 오류: {str(e)}'
         }), 500
 
+# 유저 삭제 API
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@token_required
+def delete_user(current_user, user_id):
+    try:
+        # 본인만 삭제 가능하도록 권한 체크
+        if current_user['id'] != user_id:
+            return jsonify({'error': '본인 계정만 삭제할 수 있습니다'}), 403
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 트랜잭션 시작
+        connection.begin()
+        
+        try:
+            # 1. 해당 유저가 존재하는지 확인
+            cursor.execute("SELECT email, name FROM users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            
+            if not user:
+                cursor.close()
+                connection.close()
+                return jsonify({'error': '존재하지 않는 사용자입니다'}), 404
+            
+            user_email = user['email']
+            user_name = user['name']
+            
+            # 2. 외래키 관계 처리 - 순서가 중요함!
+            
+            # 2-1. challenge_submissions 테이블에서 해당 유저의 제출물 삭제
+            cursor.execute("DELETE FROM challenge_submissions WHERE user_email = %s", (user_email,))
+            deleted_submissions = cursor.rowcount
+            
+            # 2-2. challenges 테이블에서 해당 유저가 생성한 도전과제 삭제
+            # (CASCADE 설정이 있다면 관련 submissions도 자동 삭제되지만 이미 위에서 처리함)
+            cursor.execute("DELETE FROM challenges WHERE creator = %s", (user_email,))
+            deleted_challenges = cursor.rowcount
+            
+            # 2-3. 마지막으로 users 테이블에서 유저 삭제
+            cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            
+            # 트랜잭션 커밋
+            connection.commit()
+            
+            return jsonify({
+                'message': '사용자 계정이 성공적으로 삭제되었습니다',
+                'deleted_user': {
+                    'id': user_id,
+                    'email': user_email,
+                    'name': user_name
+                },
+                'deleted_data': {
+                    'challenges': deleted_challenges,
+                    'submissions': deleted_submissions
+                }
+            }), 200
+            
+        except Exception as e:
+            # 오류 발생시 롤백
+            connection.rollback()
+            print(f"유저 삭제 중 오류 발생: {e}")
+            return jsonify({'error': '사용자 삭제 중 오류가 발생했습니다'}), 500
+            
+        finally:
+            cursor.close()
+            connection.close()
+            
+    except Exception as e:
+        print(f"유저 삭제 API 오류: {e}")
+        return jsonify({'error': '서버 오류가 발생했습니다'}), 500
+
+# 알림 조회 후 삭제 API
+@app.route('/api/notify/<user_email>', methods=['GET'])
+def get_notifications(user_email):
+    try:
+        print(f"📬 알림 요청: {user_email}")
+        
+        # 해당 사용자의 알림 가져오고 메모리에서 삭제
+        notifications = get_and_clear_notifications(user_email)
+        
+        return jsonify({
+            'success': True,
+            'count': len(notifications),
+            'notifications': notifications,
+            'timestamp': datetime.datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        print(f"알림 조회 오류: {e}")
+        return jsonify({
+            'success': False,
+            'error': '알림 조회 중 오류가 발생했습니다',
+            'notifications': []
+        }), 500
+
 # 기본 루트
 @app.route('/')
 def home():
@@ -706,7 +880,7 @@ def home():
                 "POST /api/challenges/{id}/submit": {
                     "description": "도전과제 참여/사진 제출",
                     "request": {"comment": "string", "photo": "file"},
-                    "response_success": {"message": "도전과제 참여가 완료되었습니다", "submission_id": "int", "photo_path": "string"},
+                    "response_success": {"message": "도전과제 참여가 완료되었습니다", "submission_id": "int", "photo_path": "string", "notifications_sent": {"creator": "string|null", "participants": "int"}},
                     "response_error": {"error": "존재하지 않는 도전과제입니다"}
                 },
                 "GET /api/challenges/{id}/submissions": {
@@ -728,6 +902,40 @@ def home():
                     "request": "없음",
                     "response_success": [{"_id": "int", "title": "string", "content": "string", "creator": "string", "creatorName": "string", "createdAt": "datetime", "status": "string"}],
                     "response_error": {"message": "에러 메시지"}
+                },
+                "DELETE /api/users/{user_id}": {
+                    "description": "사용자 계정 삭제",
+                    "request": "없음 (토큰 필요, 본인만 가능)",
+                    "response_success": {"message": "사용자 계정이 성공적으로 삭제되었습니다", "deleted_user": {"id": "int", "email": "string", "name": "string"}, "deleted_data": {"challenges": "int", "submissions": "int"}},
+                    "response_error": {"error": "본인 계정만 삭제할 수 있습니다"}
+                }
+            },
+            "알림": {
+                "GET /api/notify/{user_email}": {
+                    "description": "사용자 알림 조회 후 삭제",
+                    "request": "없음",
+                    "response_success": {"success": true, "count": "int", "notifications": [{"type": "string", "title": "string", "message": "string", "challenge_id": "int", "timestamp": "string"}], "timestamp": "string"},
+                    "response_error": {"success": false, "error": "알림 조회 중 오류가 발생했습니다", "notifications": []}
+                },
+                "GET /api/notify/status": {
+                    "description": "전체 알림 상태 확인 (디버깅용)",
+                    "request": "없음",
+                    "response_success": {"total_users_with_notifications": "int", "notification_store": {}, "timestamp": "string"},
+                    "response_error": {"error": "에러 메시지"}
+                },
+                "POST /api/notify/test/{user_email}": {
+                    "description": "테스트용 알림 생성",
+                    "request": {"title": "string", "message": "string"},
+                    "response_success": {"message": "테스트 알림이 추가되었습니다", "notification": {}},
+                    "response_error": {"error": "에러 메시지"}
+                }
+            },
+            "AI 기능": {
+                "POST /api/detect-postit": {
+                    "description": "포스트잇 검출 API",
+                    "request": {"image": "base64 string"},
+                    "response_success": {"success": true, "message": "포스트잇 검출 성공", "postit_found": true, "postit_image": "base64 string"},
+                    "response_error": {"success": false, "message": "포스트잇을 찾지 못했습니다", "postit_found": false}
                 }
             },
             "파일": {
@@ -739,10 +947,23 @@ def home():
                 }
             }
         },
+        "features": {
+            "알림 시스템": "메모리 기반 실시간 알림 (새 인증 사진 업로드시 자동 발송)",
+            "포스트잇 검출": "AI 기반 이미지 처리 (app_umai.py 연동)",
+            "사용자 관리": "회원가입, 로그인, 계정 삭제",
+            "도전과제 관리": "생성, 조회, 삭제, 상태 업데이트",
+            "사진 업로드": "인증 사진 업로드 및 관리"
+        },
         "upload_settings": {
             "allowed_extensions": ["png", "jpg", "jpeg", "gif"],
             "upload_folder": "photos",
             "max_file_size": "제한 없음"
+        },
+        "notification_system": {
+            "storage": "메모리 기반 (서버 재시작시 초기화)",
+            "triggers": ["새 인증 사진 제출"],
+            "recipients": ["도전과제 생성자", "기존 참여자들"],
+            "polling_endpoint": "GET /api/notify/{user_email}"
         }
     })
 

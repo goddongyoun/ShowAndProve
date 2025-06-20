@@ -300,6 +300,8 @@ const callOCRSpace = async (base64Image) => {
 
     const data = await response.json();
     
+    console.log(data);
+
     if (data.IsErroredOnProcessing) {
       throw new Error(data.ErrorMessage || 'OCR 처리 중 오류 발생');
     }
