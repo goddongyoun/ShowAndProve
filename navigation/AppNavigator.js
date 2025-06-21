@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoginScreen from '../components/Auth/LoginScreen';
 import RegisterScreen from '../components/Auth/RegisterScreen';
+import AdminLoginScreen from '../components/Auth/AdminLoginScreen'; // Added back
 import ChallengeCreateScreen from '../components/Challenge/ChallengeCreateScreen';
 import ChallengeListScreen from '../components/Challenge/ChallengeListScreen';
 import HomeScreen from '../screens/HomeScreen';
@@ -11,6 +12,7 @@ import ChallengeVerificationScreen from '../screens/ChallengeVerification';
 import MyPage from '../screens/MyPage';
 import ChallengeDetail from '../screens/ChallengeDetail';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
+import AdminDashboardScreen from '../screens/AdminDashboardScreen'; // Added back
 import { TouchableOpacity, Text, View, Alert } from 'react-native';
 
 const Stack = createStackNavigator();
@@ -173,6 +175,11 @@ export default function AppNavigator({ onLoginStateChange }) {
           initialParams={{ onLoginSuccess }}
         />
         <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen 
+          name="AdminLogin" 
+          component={AdminLoginScreen}
+          options={{ headerShown: false }} // Hide header for AdminLoginScreen
+        />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="ChallengeCreate" component={ChallengeCreateScreen} />
         <Stack.Screen name="ChallengeList" component={ChallengeListScreen} />
@@ -188,6 +195,11 @@ export default function AppNavigator({ onLoginStateChange }) {
           options={{
             headerShown: false,
           }}
+        />
+        <Stack.Screen 
+          name="AdminDashboard" 
+          component={AdminDashboardScreen}
+          options={{ headerShown: false }} // Hide header for AdminDashboardScreen
         />
       </Stack.Navigator>
     </NavigationContainer>
