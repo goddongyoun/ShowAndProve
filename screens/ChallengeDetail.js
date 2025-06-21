@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,22 +8,22 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
-} from 'react-native';
-import BottomNavBar from '../navigation/BottomNavBar';
-import { getVerifications } from '../services/challengeService';
-import { getCurrentUser } from '../services/authService';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {globalStyles} from '../utils/styles';
+} from "react-native";
+import BottomNavBar from "../navigation/BottomNavBar";
+import { getVerifications } from "../services/challengeService";
+import { getCurrentUser } from "../services/authService";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { globalStyles } from "../utils/styles";
 
-const BASE_URL = 'http://219.254.146.234:5000';
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const BASE_URL = "http://219.254.146.234:5000";
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 export default function ChallengeDetail({ route, navigation }) {
   const challenge = route?.params?.challenge || {
-    title: '도전과제 제목',
-    description: '도전과제 내용',
-    creator: '작성자',
-    createdAt: '2024-01-01',
+    title: "도전과제 제목",
+    description: "도전과제 내용",
+    creator: "작성자",
+    createdAt: "2024-01-01",
   };
 
   const [verifications, setVerifications] = useState([]);
@@ -44,7 +44,7 @@ export default function ChallengeDetail({ route, navigation }) {
     } else {
       return 4;
     }
-  }
+  };
 
   const numColumns = getNumColumns();
 
@@ -61,13 +61,13 @@ export default function ChallengeDetail({ route, navigation }) {
           await fetchVerifications();
         }
       } catch (error) {
-        setError('초기화 중 오류가 발생했습니다: ' + error.message);
+        setError("초기화 중 오류가 발생했습니다: " + error.message);
         setLoading(false);
       }
     };
     initialize();
 
-    const unsubscribe = navigation.addListener('focus', () => {
+    const unsubscribe = navigation.addListener("focus", () => {
       if (challenge._id || challenge.id) {
         fetchVerifications();
       }
@@ -80,9 +80,13 @@ export default function ChallengeDetail({ route, navigation }) {
     try {
       const challengeId = challenge._id || challenge.id;
       const data = await getVerifications(challengeId);
-      setVerifications((data || []).filter(v => typeof v === 'object' && v !== null));
+      setVerifications(
+        (data || []).filter((v) => typeof v === "object" && v !== null)
+      );
     } catch (error) {
-      setError('인증 사진 목록을 불러오는 중 오류가 발생했습니다: ' + error.message);
+      setError(
+        "인증 사진 목록을 불러오는 중 오류가 발생했습니다: " + error.message
+      );
     } finally {
       setLoading(false);
     }
@@ -100,7 +104,7 @@ export default function ChallengeDetail({ route, navigation }) {
 
   const handleVerify = () => {
     const challengeId = challenge._id || challenge.id;
-    navigation.navigate('ChallengeVerification', {
+    navigation.navigate("ChallengeVerification", {
       challengeId,
       onSuccess: () => {
         fetchVerifications();
@@ -109,11 +113,12 @@ export default function ChallengeDetail({ route, navigation }) {
   };
 
   const renderVerification = ({ item }) => {
-    const userName = item.user_name || item.user_email || '사용자';
-    const commentText = typeof item.comment === 'string' ? item.comment.trim() : '';
+    const userName = item.user_name || item.user_email || "사용자";
+    const commentText =
+      typeof item.comment === "string" ? item.comment.trim() : "";
     const hasComment = commentText.length > 0;
 
-    let dateText = '인증일: 정보 없음';
+    let dateText = "인증일: 정보 없음";
     if (item.submitted_at) {
       try {
         const date = new Date(item.submitted_at);
@@ -126,24 +131,28 @@ export default function ChallengeDetail({ route, navigation }) {
     }
 
     return (
-      <View style={{
-        backgroundColor: '#FFFFFF',
-        padding: 15,
-        borderWidth: 2,
-        borderColor: '#FFE357',
-        borderRadius: 16,
-        width: itemWidth,
-        margin: itemGap,
-      }}>
+      <View
+        style={{
+          backgroundColor: "#FFFFFF",
+          padding: 15,
+          borderWidth: 2,
+          borderColor: "#FFE357",
+          borderRadius: 16,
+          width: itemWidth,
+          margin: itemGap,
+        }}
+      >
         {item.photo_path && (
-          <TouchableOpacity onPress={() => handleImagePress(`${BASE_URL}${item.photo_path}`)}>
+          <TouchableOpacity
+            onPress={() => handleImagePress(`${BASE_URL}${item.photo_path}`)}
+          >
             <Image
               source={{ uri: `${BASE_URL}${item.photo_path}` }}
               style={{
-                width: '100%',
+                width: "100%",
                 height: 150,
                 borderRadius: 8,
-                marginBottom: 10
+                marginBottom: 10,
               }}
             />
           </TouchableOpacity>
@@ -152,11 +161,16 @@ export default function ChallengeDetail({ route, navigation }) {
           {userName}
         </Text>
         {hasComment && (
-          <Text style={[globalStyles.text, { fontSize: 12, color: '#666', marginBottom: 5 }]}>
+          <Text
+            style={[
+              globalStyles.text,
+              { fontSize: 12, color: "#666", marginBottom: 5 },
+            ]}
+          >
             {`"${commentText}"`}
           </Text>
         )}
-        <Text style={[globalStyles.text, { fontSize: 12, color: '#888' }]}>
+        <Text style={[globalStyles.text, { fontSize: 12, color: "#888" }]}>
           {dateText}
         </Text>
       </View>
@@ -165,45 +179,82 @@ export default function ChallengeDetail({ route, navigation }) {
 
   const renderHeader = () => (
     <View style={{ padding: 20 }}>
-      <Text style={[globalStyles.text, { fontSize: 24, color: '#5E4636', marginBottom: 10 }]}>
-        {challenge.title || '제목 없음'}
+      <Text
+        style={[
+          globalStyles.text,
+          { fontSize: 24, color: "#5E4636", marginBottom: 10 },
+        ]}
+      >
+        {challenge.title || "제목 없음"}
       </Text>
-      <Text style={[globalStyles.text, { marginBottom: 10, color: '#5E4636', fontSize: 16 }]}>
-        {challenge.description || challenge.content || '내용 없음'}
+      <Text
+        style={[
+          globalStyles.text,
+          { marginBottom: 10, color: "#5E4636", fontSize: 16 },
+        ]}
+      >
+        {challenge.description || challenge.content || "내용 없음"}
       </Text>
-      <Text style={[globalStyles.text, { color: '#888', marginBottom: 10 }]}>
-        작성자: {challenge.creator || challenge.creatorName || '알 수 없음'}
+      <Text style={[globalStyles.text, { color: "#888", marginBottom: 10 }]}>
+        작성자: {challenge.creator || challenge.creatorName || "알 수 없음"}
       </Text>
-      <Text style={[globalStyles.text, { color: '#888', marginBottom: 20 }] }>
+      <Text style={[globalStyles.text, { color: "#888", marginBottom: 20 }]}>
         {challenge.createdAt || challenge.created_at
-          ? `생성일: ${new Date(challenge.createdAt || challenge.created_at).toLocaleDateString()}`
-          : '생성일: 날짜 없음'}
+          ? `생성일: ${new Date(
+              challenge.createdAt || challenge.created_at
+            ).toLocaleDateString()}`
+          : "생성일: 날짜 없음"}
       </Text>
       <TouchableOpacity
-        style={[globalStyles.button, {
-          padding: 15,
-          borderRadius: 8,
-          flexDirection: 'row',
-          justifyContent: 'center',
-          alignItems: 'center',
-          marginBottom: 30,
-        }]}
+        style={[
+          globalStyles.button,
+          {
+            padding: 15,
+            borderRadius: 8,
+            flexDirection: "row",
+            justifyContent: "center",
+            alignItems: "center",
+            marginBottom: 30,
+          },
+        ]}
         onPress={handleVerify}
       >
-        <Icon name="camera-plus" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-        <Text style={[globalStyles.text, { fontSize: 16, color: '#FFFFFF' }]}>도전과제 인증</Text>
+        <Icon
+          name="camera-plus"
+          size={20}
+          color="#FFFFFF"
+          style={{ marginRight: 8 }}
+        />
+        <Text style={[globalStyles.text, { fontSize: 16, color: "#FFFFFF" }]}>
+          도전과제 인증
+        </Text>
       </TouchableOpacity>
-      <Text style={[globalStyles.text, { fontSize: 20, color: '#5E4636', marginBottom: 15 }]}>
+      <Text
+        style={[
+          globalStyles.text,
+          { fontSize: 20, color: "#5E4636", marginBottom: 15 },
+        ]}
+      >
         인증 사진 목록 ({verifications.length})
       </Text>
     </View>
   );
 
   const renderEmptyComponent = () => (
-    <View style={{ justifyContent: 'center', alignItems: 'center', paddingVertical: 50 }}>
+    <View
+      style={{
+        justifyContent: "center",
+        alignItems: "center",
+        paddingVertical: 50,
+      }}
+    >
       <Icon name="image-off" size={48} color="#ccc" />
-      <Text style={[globalStyles.text, { color: '#666', marginTop: 10 }]}>아직 인증 사진이 없습니다.</Text>
-      <Text style={[globalStyles.text, { color: '#666', fontSize: 12 }]}>첫 번째 인증자가 되어보세요!</Text>
+      <Text style={[globalStyles.text, { color: "#666", marginTop: 10 }]}>
+        아직 인증 사진이 없습니다.
+      </Text>
+      <Text style={[globalStyles.text, { color: "#666", fontSize: 12 }]}>
+        첫 번째 인증자가 되어보세요!
+      </Text>
     </View>
   );
 
@@ -211,33 +262,52 @@ export default function ChallengeDetail({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#FFF44F" />
-        <Text style={[globalStyles.text, { marginTop: 10, color: '#666' }]}>로딩 중...</Text>
+        <Text style={[globalStyles.text, { marginTop: 10, color: "#666" }]}>
+          로딩 중...
+        </Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={[globalStyles.text, { color: '#F44336', marginBottom: 10, textAlign: 'center' }]}>{error}</Text>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          padding: 20,
+        }}
+      >
+        <Text
+          style={[
+            globalStyles.text,
+            { color: "#F44336", marginBottom: 10, textAlign: "center" },
+          ]}
+        >
+          {error}
+        </Text>
         <TouchableOpacity
-          style={[globalStyles.button, { backgroundColor: '#eee', padding: 10, borderRadius: 8 }]}
+          style={[
+            globalStyles.button,
+            { backgroundColor: "#eee", padding: 10, borderRadius: 8 },
+          ]}
           onPress={() => {
             setError(null);
             setLoading(true);
             fetchVerifications();
           }}
         >
-          <Text style={[globalStyles.text, { color: '#000' }]}>재시도</Text>
+          <Text style={[globalStyles.text, { color: "#000" }]}>재시도</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fffcf4' }}>
+    <View style={{ flex: 1, backgroundColor: "#fffcf4" }}>
       <FlatList
         data={verifications}
         renderItem={renderVerification}
@@ -256,20 +326,20 @@ export default function ChallengeDetail({ route, navigation }) {
         transparent={true}
         animationType="fade"
         onRequestClose={closeImageModal}
-        supportedOrientations={['portrait', 'landscape']}
+        supportedOrientations={["portrait", "landscape"]}
       >
         <View
           style={{
             flex: 1,
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            justifyContent: 'center',
-            alignItems: 'center',
+            backgroundColor: "rgba(0, 0, 0, 0.9)",
+            justifyContent: "center",
+            alignItems: "center",
           }}
         >
           {/* 배경 터치 영역 */}
           <TouchableOpacity
             style={{
-              position: 'absolute',
+              position: "absolute",
               top: 0,
               left: 0,
               right: 0,
@@ -281,7 +351,7 @@ export default function ChallengeDetail({ route, navigation }) {
 
           {/* 이미지 컨테이너 */}
           {selectedImage && (
-            <View style={{ position: 'relative' }}>
+            <View style={{ position: "relative" }}>
               <Image
                 source={{ uri: selectedImage }}
                 style={{
@@ -291,20 +361,20 @@ export default function ChallengeDetail({ route, navigation }) {
                 }}
                 resizeMode="contain"
               />
-              
+
               {/* 닫기 버튼 */}
               <TouchableOpacity
                 style={{
-                  position: 'absolute',
+                  position: "absolute",
                   top: -15,
                   right: -15,
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  backgroundColor: "rgba(255, 255, 255, 0.9)",
                   borderRadius: 20,
                   width: 40,
                   height: 40,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  shadowColor: '#000',
+                  justifyContent: "center",
+                  alignItems: "center",
+                  shadowColor: "#000",
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.3,
                   shadowRadius: 4,
