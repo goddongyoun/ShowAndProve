@@ -9,6 +9,7 @@ const API_BASE_URL = 'http://219.254.146.234:5000/api'; // 백엔드 서버 URL 
 
 export default function AdminDashboardScreen({ navigation }) {
   const [users, setUsers] = useState([]);
+  const [allChallengeCreators, setAllChallengeCreators] = useState([]); // 새롭게 추가될 상태
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -41,6 +42,21 @@ export default function AdminDashboardScreen({ navigation }) {
       // 백엔드에서 도전과제 목록 가져오기
       const challengesResponse = await axios.get(`${API_BASE_URL}/challenges`);
       setChallenges(challengesResponse.data);
+
+      // 도전과제 생성자 정보를 추출하여 사용자 목록으로 설정
+      const uniqueCreators = new Map();
+      challengesResponse.data.forEach(challenge => {
+        if (challenge.creator && challenge.creatorName) { // 유효한 생성자 정보만 추가
+          uniqueCreators.set(challenge.creator, {
+            id: challenge.creator, // 이메일을 고유 ID로 사용
+            email: challenge.creator,
+            name: challenge.creatorName
+          });
+        }
+      });
+      const creatorsArray = Array.from(uniqueCreators.values());
+      setUsers(creatorsArray); // 현재 표시될 유저 목록
+      setAllChallengeCreators(creatorsArray); // 모든 유저 목록 (검색 필터링에 사용)
 
     } catch (err) {
       console.error('Admin Dashboard Fetch Error:', err.response?.data || err.message);
@@ -83,27 +99,29 @@ export default function AdminDashboardScreen({ navigation }) {
     );
   };
 
-  // 사용자 검색 로직 (TODO: 백엔드 검색 API가 없을 경우 클라이언트 필터링)
+  // 사용자 검색 로직 (게시물 생성자 기준 클라이언트 필터링)
   const handleSearchUsers = async (query) => {
-    Alert.alert('알림', '사용자 검색 기능은 현재 비활성화되어 있습니다. (TODO)');
-    // TODO: 백엔드 검색 API가 있다면 이 부분을 수정하세요.
-    // 현재는 모든 유저를 가져와서 클라이언트에서 필터링합니다.
-    // setLoading(true);
-    // try {
-    //   const usersResponse = await axios.get(`${API_BASE_URL}/users`);
-    //   const allUsers = usersResponse.data;
-    //   const filteredUsers = allUsers.filter(user => 
-    //     user.email.toLowerCase().includes(query.toLowerCase()) || 
-    //     user.name.toLowerCase().includes(query.toLowerCase())
-    //   );
-    //   setUsers(filteredUsers);
-    //   Alert.alert('알림', `사용자 검색 완료: ${filteredUsers.length}명`);
-    // } catch (err) {
-    //   console.error('Search Users Error:', err.response?.data || err.message);
-    //   Alert.alert('오류', err.response?.data?.error || '사용자 검색에 실패했습니다.');
-    // } finally {
-    //   setLoading(false);
-    // }
+    // query.trim()으로 앞뒤 공백 제거 후 비어있는지 확인
+    if (query.trim() === '') {
+      setUsers(allChallengeCreators); // 검색어가 없으면 전체 목록 표시
+      Alert.alert('알림', '전체 사용자 목록을 표시합니다.');
+      return; // 함수 종료
+    }
+
+    setLoading(true);
+    try {
+      const filteredUsers = allChallengeCreators.filter(user => // allChallengeCreators 사용
+        user.email.toLowerCase().includes(query.toLowerCase()) || 
+        user.name.toLowerCase().includes(query.toLowerCase())
+      );
+      setUsers(filteredUsers);
+      Alert.alert('알림', `사용자 검색 완료: ${filteredUsers.length}명`);
+    } catch (err) {
+      console.error('Search Users Error:', err.response?.data || err.message);
+      Alert.alert('오류', err.response?.data?.error || '사용자 검색에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // 게시물 검색 로직 (TODO: 백엔드 검색 API가 없을 경우 클라이언트 필터링)
@@ -157,7 +175,7 @@ export default function AdminDashboardScreen({ navigation }) {
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="사용자 이메일 또는 이름 검색 (TODO)"
+          placeholder="게시물 생성자 이메일 또는 이름 검색"
           placeholderTextColor="#aaa"
           value={searchUserQuery}
           onChangeText={setSearchUserQuery}
