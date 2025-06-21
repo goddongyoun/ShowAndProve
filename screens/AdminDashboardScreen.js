@@ -214,7 +214,7 @@ export default function AdminDashboardScreen({ navigation }) {
           <View style={styles.listItem}>
             <Text style={styles.listItemText}>제목: {item.title}</Text>
             <Text style={styles.listItemText}>생성자: {item.creatorName} ({item.creator})</Text>
-            <Text style={styles.listItemText}>상태: {item.status}</Text>
+            {/* <Text style={styles.listItemText}>상태: {item.status}</Text> */}
             <TouchableOpacity 
               onPress={() => handleDeleteChallenge(item.id)}
               style={[styles.deleteButton, { backgroundColor: '#ff6347' }]} // Tomato color
