@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { globalStyles } from '../utils/styles';
 import { TextInput } from 'react-native'; // TextInput 추가
-// import AsyncStorage from '@react-native-async-storage/async-storage'; // TODO: 백엔드 통신 필요
-// import axios from 'axios'; // TODO: 백엔드 통신 필요
+// import AsyncStorage from '@react-native-async-storage/async-storage'; // TODO 주석 해제
+import axios from 'axios'; // TODO 주석 해제
 
-// const API_BASE_URL = 'http://203.234.62.50:5000/api'; // TODO: 백엔드 서버 URL 설정 필요
+const API_BASE_URL = 'http://219.254.146.234:5000/api'; // 백엔드 서버 URL 설정
 
 export default function AdminDashboardScreen({ navigation }) {
   const [users, setUsers] = useState([]);
@@ -33,28 +33,19 @@ export default function AdminDashboardScreen({ navigation }) {
     setLoading(true);
     setError(null);
     try {
-      // TODO: 백엔드에서 회원 정보 및 게시물 정보 가져오는 로직 구현
-      // const headers = await getAuthHeaders();
-      // const usersResponse = await axios.get(`${API_BASE_URL}/admin/users`, headers);
-      // setUsers(usersResponse.data);
+      // const headers = await getAuthHeaders(); // TODO: 관리자 로그인 구현 시 주석 해제
 
-      // const challengesResponse = await axios.get(`${API_BASE_URL}/admin/challenges`, headers);
-      // setChallenges(challengesResponse.data);
+      // 백엔드에서 회원 정보 가져오기 (기존 API 없음)
+      setUsers([]); // 임시로 빈 배열 설정
 
-      // 임시 데이터 (백엔드 통신 전까지 사용)
-      setUsers([
-        { id: '1', email: 'user1@example.com', name: '테스트유저1' },
-        { id: '2', email: 'user2@example.com', name: '테스트유저2' },
-      ]);
-      setChallenges([
-        { id: 'c1', title: '테스트 도전과제1', creator_name: '테스트유저1', creator_email: 'user1@example.com', status: '진행 중' },
-        { id: 'c2', title: '테스트 도전과제2', creator_name: '테스트유저2', creator_email: 'user2@example.com', status: '완료' },
-      ]);
+      // 백엔드에서 도전과제 목록 가져오기
+      const challengesResponse = await axios.get(`${API_BASE_URL}/challenges`);
+      setChallenges(challengesResponse.data);
 
     } catch (err) {
-      console.error('Admin Dashboard Fetch Error:', err);
-      setError('데이터를 불러오는 데 실패했습니다. (TODO)');
-      Alert.alert('오류', '데이터를 불러오는 데 실패했습니다. (TODO)');
+      console.error('Admin Dashboard Fetch Error:', err.response?.data || err.message);
+      setError(err.response?.data?.error || '데이터를 불러오는 데 실패했습니다.');
+      Alert.alert('오류', err.response?.data?.error || '데이터를 불러오는 데 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -63,16 +54,13 @@ export default function AdminDashboardScreen({ navigation }) {
   const handleDeleteUser = async (userId) => {
     Alert.alert(
       '사용자 삭제',
-      '정말로 이 사용자를 삭제하시겠습니까? (TODO)',
+      '정말로 이 사용자를 삭제하시겠습니까? 관련 모든 데이터가 삭제됩니다.',
       [
         { text: '취소', style: 'cancel' },
         {
           text: '삭제',
           onPress: async () => {
-            // TODO: 백엔드 서버와 통신하여 사용자 삭제 로직 구현
-            console.log(`사용자 삭제 요청: ${userId}`);
-            Alert.alert('알림', `사용자 ${userId} 삭제 요청 (TODO)`);
-            fetchData(); // 임시로 데이터 새로고침
+            Alert.alert('알림', '사용자 삭제 기능은 현재 비활성화되어 있습니다. (TODO)');
           },
         },
       ]
@@ -82,34 +70,63 @@ export default function AdminDashboardScreen({ navigation }) {
   const handleDeleteChallenge = async (challengeId) => {
     Alert.alert(
       '도전과제 삭제',
-      '정말로 이 도전과제를 삭제하시겠습니까? (TODO)',
+      '정말로 이 도전과제를 삭제하시겠습니까? 관련 모든 인증 기록이 삭제됩니다.',
       [
         { text: '취소', style: 'cancel' },
         {
           text: '삭제',
           onPress: async () => {
-            // TODO: 백엔드 서버와 통신하여 도전과제 삭제 로직 구현
-            console.log(`도전과제 삭제 요청: ${challengeId}`);
-            Alert.alert('알림', `도전과제 ${challengeId} 삭제 요청 (TODO)`);
-            fetchData(); // 임시로 데이터 새로고침
+            Alert.alert('알림', '도전과제 삭제 기능은 현재 비활성화되어 있습니다. (TODO)');
           },
         },
       ]
     );
   };
 
-  // TODO: 사용자 검색 로직 (백엔드 통신 필요)
-  const handleSearchUsers = (query) => {
-    console.log(`사용자 검색 요청: ${query} (TODO)`);
-    Alert.alert('알림', `사용자 검색: ${query} (TODO)`);
-    // 백엔드 API 호출하여 검색된 사용자 목록을 가져오도록 구현 예정
+  // 사용자 검색 로직 (TODO: 백엔드 검색 API가 없을 경우 클라이언트 필터링)
+  const handleSearchUsers = async (query) => {
+    Alert.alert('알림', '사용자 검색 기능은 현재 비활성화되어 있습니다. (TODO)');
+    // TODO: 백엔드 검색 API가 있다면 이 부분을 수정하세요.
+    // 현재는 모든 유저를 가져와서 클라이언트에서 필터링합니다.
+    // setLoading(true);
+    // try {
+    //   const usersResponse = await axios.get(`${API_BASE_URL}/users`);
+    //   const allUsers = usersResponse.data;
+    //   const filteredUsers = allUsers.filter(user => 
+    //     user.email.toLowerCase().includes(query.toLowerCase()) || 
+    //     user.name.toLowerCase().includes(query.toLowerCase())
+    //   );
+    //   setUsers(filteredUsers);
+    //   Alert.alert('알림', `사용자 검색 완료: ${filteredUsers.length}명`);
+    // } catch (err) {
+    //   console.error('Search Users Error:', err.response?.data || err.message);
+    //   Alert.alert('오류', err.response?.data?.error || '사용자 검색에 실패했습니다.');
+    // } finally {
+    //   setLoading(false);
+    // }
   };
 
-  // TODO: 게시물 검색 로직 (백엔드 통신 필요)
-  const handleSearchChallenges = (query) => {
-    console.log(`게시물 검색 요청: ${query} (TODO)`);
-    Alert.alert('알림', `게시물 검색: ${query} (TODO)`);
-    // 백엔드 API 호출하여 검색된 게시물 목록을 가져오도록 구현 예정
+  // 게시물 검색 로직 (TODO: 백엔드 검색 API가 없을 경우 클라이언트 필터링)
+  const handleSearchChallenges = async (query) => {
+    // TODO: 백엔드 검색 API가 있다면 이 부분을 수정하세요.
+    // 현재는 모든 게시물을 가져와서 클라이언트에서 필터링합니다.
+    setLoading(true);
+    try {
+      const challengesResponse = await axios.get(`${API_BASE_URL}/challenges`);
+      const allChallenges = challengesResponse.data;
+      const filteredChallenges = allChallenges.filter(challenge => 
+        challenge.title.toLowerCase().includes(query.toLowerCase()) || 
+        challenge.creator_name.toLowerCase().includes(query.toLowerCase()) ||
+        challenge.creator_email.toLowerCase().includes(query.toLowerCase())
+      );
+      setChallenges(filteredChallenges);
+      Alert.alert('알림', `게시물 검색 완료: ${filteredChallenges.length}개`);
+    } catch (err) {
+      console.error('Search Challenges Error:', err.response?.data || err.message);
+      Alert.alert('오류', err.response?.data?.error || '게시물 검색에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
@@ -152,29 +169,33 @@ export default function AdminDashboardScreen({ navigation }) {
           <Text style={styles.searchButtonText}>검색</Text>
         </TouchableOpacity>
       </View>
-      <FlatList
-        data={users}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.listItem}>
-            <Text style={styles.listItemText}>이메일: {item.email}</Text>
-            <Text style={styles.listItemText}>이름: {item.name}</Text>
-            <TouchableOpacity 
-              onPress={() => handleDeleteUser(item.id)}
-              style={[styles.deleteButton, { backgroundColor: '#ff6347' }]} // Tomato color
-            >
-              <Text style={styles.deleteButtonText}>삭제</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      />
+      {users.length > 0 ? (
+        <FlatList
+          data={users}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.listItem}>
+              <Text style={styles.listItemText}>이메일: {item.email}</Text>
+              <Text style={styles.listItemText}>이름: {item.name}</Text>
+              <TouchableOpacity 
+                onPress={() => handleDeleteUser(item.id)}
+                style={[styles.deleteButton, { backgroundColor: '#ff6347' }]} // Tomato color
+              >
+                <Text style={styles.deleteButtonText}>삭제</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+      ) : (
+        <Text style={globalStyles.text}>사용자 목록을 불러올 수 없습니다. (TODO)</Text>
+      )}
 
       <Text style={styles.sectionTitle}>도전과제 목록</Text>
       {/* 게시물 검색 UI */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="도전과제 제목 또는 생성자 검색 (TODO)"
+          placeholder="도전과제 제목 또는 생성자 검색"
           placeholderTextColor="#aaa"
           value={searchChallengeQuery}
           onChangeText={setSearchChallengeQuery}
@@ -213,54 +234,56 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 20,
     marginBottom: 10,
-    color: '#fff',
+    color: '#333',
   },
   listItem: {
-    backgroundColor: '#333',
+    backgroundColor: '#f9f9f9',
     padding: 15,
     borderRadius: 8,
     marginBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#eee',
   },
   listItemText: {
-    color: '#fff',
     fontSize: 16,
-    flexShrink: 1, // 텍스트가 길어질 경우 줄바꿈되도록
-    marginRight: 10,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    marginBottom: 15,
-    width: '100%',
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: '#444',
-    color: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    marginRight: 10,
-  },
-  searchButton: {
-    backgroundColor: '#FFD400',
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
+    color: '#555',
+    flexShrink: 1,
   },
   deleteButton: {
     padding: 8,
     borderRadius: 5,
+    marginLeft: 10,
   },
   deleteButtonText: {
-    color: '#fff',
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    padding: 10,
+    marginRight: 10,
+    backgroundColor: '#fff',
+    color: '#333',
+  },
+  searchButton: {
+    backgroundColor: '#007bff',
+    padding: 10,
+    borderRadius: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchButtonText: {
+    color: 'white',
     fontWeight: 'bold',
   },
 }); 
