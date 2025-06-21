@@ -116,8 +116,8 @@ export default function AdminDashboardScreen({ navigation }) {
       const allChallenges = challengesResponse.data;
       const filteredChallenges = allChallenges.filter(challenge => 
         challenge.title.toLowerCase().includes(query.toLowerCase()) || 
-        challenge.creator_name.toLowerCase().includes(query.toLowerCase()) ||
-        challenge.creator_email.toLowerCase().includes(query.toLowerCase())
+        challenge.creatorName.toLowerCase().includes(query.toLowerCase()) ||
+        challenge.creator.toLowerCase().includes(query.toLowerCase())
       );
       setChallenges(filteredChallenges);
       Alert.alert('알림', `게시물 검색 완료: ${filteredChallenges.length}개`);
@@ -213,7 +213,7 @@ export default function AdminDashboardScreen({ navigation }) {
         renderItem={({ item }) => (
           <View style={styles.listItem}>
             <Text style={styles.listItemText}>제목: {item.title}</Text>
-            <Text style={styles.listItemText}>생성자: {item.creator_name} ({item.creator_email})</Text>
+            <Text style={styles.listItemText}>생성자: {item.creatorName} ({item.creator})</Text>
             <Text style={styles.listItemText}>상태: {item.status}</Text>
             <TouchableOpacity 
               onPress={() => handleDeleteChallenge(item.id)}
