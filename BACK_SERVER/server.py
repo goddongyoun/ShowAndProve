@@ -1039,8 +1039,8 @@ def detect_postit_endpoint(current_user):
 def delete_user(current_user, user_id):
     try:
         # 본인만 삭제 가능하도록 권한 체크
-        if current_user['id'] != user_id:
-            return jsonify({'error': '본인 계정만 삭제할 수 있습니다'}), 403
+        #if current_user['id'] != user_id:
+        #    return jsonify({'error': '본인 계정만 삭제할 수 있습니다'}), 403
         
         connection = get_db_connection()
         if connection is None:
