@@ -14,6 +14,7 @@ import { globalStyles } from "../utils/styles";
 import { getChallenges, deleteChallenge } from "../services/challengeService";
 import { getCurrentUser } from "../services/authService"; // authService에서 임포트
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+// BottomNavBar import 제거 - 순환 참조 방지
 
 export default function HomeScreen({ navigation }) {
   const [challenges, setChallenges] = useState([]);
@@ -36,9 +37,17 @@ export default function HomeScreen({ navigation }) {
   const fetchChallenges = async () => {
     try {
       const data = await getChallenges();
-      setChallenges(data);
+      // 데이터가 배열인지 확인하고 안전하게 처리
+      if (Array.isArray(data)) {
+        setChallenges(data.filter(item => item && typeof item === 'object'));
+      } else {
+        console.warn('getChallenges가 배열이 아닌 데이터를 반환했습니다:', data);
+        setChallenges([]);
+      }
     } catch (error) {
-      alert(error.message);
+      console.error('도전과제 목록 조회 오류:', error);
+      Alert.alert("오류", "도전과제 목록을 불러오는 중 오류가 발생했습니다: " + error.message);
+      setChallenges([]);
     } finally {
       setLoading(false);
     }
@@ -65,15 +74,14 @@ export default function HomeScreen({ navigation }) {
       fetchChallenges();
     });
 
-    const handleResize = () => {
+    // Dimensions 이벤트 리스너를 새로운 방식으로 처리
+    const subscription = Dimensions.addEventListener("change", () => {
       setNumColumns(getNumColumns());
-    };
-
-    Dimensions.addEventListener("change", handleResize);
+    });
 
     return () => {
       unsubscribe();
-      Dimensions.removeEventListener("change", handleResize);
+      subscription?.remove(); // 새로운 방식으로 제거
     };
   }, [navigation]);
 
@@ -89,15 +97,41 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleDelete = async (challengeId) => {
-    const confirmed = confirm("정말로 이 도전과제를 삭제하시겠습니까?");
-    if (confirmed) {
-      try {
-        await deleteChallenge(challengeId);
-        fetchChallenges();
-      } catch (error) {
-        alert(error.message);
+    console.log('=== 도전과제 삭제 시작 ===');
+    console.log('삭제할 도전과제 ID:', challengeId);
+    console.log('현재 플랫폼:', Platform.OS);
+    console.log('현재 사용자:', currentUser);
+    
+    try {
+      console.log('deleteChallenge API 호출 중...');
+      const result = await deleteChallenge(challengeId);
+      console.log('deleteChallenge API 응답:', result);
+      
+      console.log('삭제 성공, 목록 새로고침 중...');
+      await fetchChallenges(); // 목록 새로고침
+      
+      console.log('목록 새로고침 완료');
+      
+      // 플랫폼별 알림
+      if (Platform.OS === 'web') {
+        alert("도전과제가 성공적으로 삭제되었습니다.");
+      } else {
+        Alert.alert("성공", "도전과제가 성공적으로 삭제되었습니다.");
+      }
+    } catch (error) {
+      console.error("=== 도전과제 삭제 오류 ===");
+      console.error("오류 상세:", error);
+      console.error("오류 메시지:", error.message);
+      
+      // 플랫폼별 오류 알림
+      if (Platform.OS === 'web') {
+        alert("도전과제 삭제 중 오류가 발생했습니다: " + error.message);
+      } else {
+        Alert.alert("오류", "도전과제 삭제 중 오류가 발생했습니다: " + error.message);
       }
     }
+    
+    console.log('=== 도전과제 삭제 완료 ===');
   };
 
   // 새 도전과제 만들기 버튼 클릭 시 로그인 확인
@@ -125,6 +159,69 @@ export default function HomeScreen({ navigation }) {
       return <View style={[styles.itemContainer, styles.itemInvisible]} />;
     }
 
+    // 안전한 객체 접근
+    if (!item || typeof item !== 'object') {
+      return <View style={[styles.itemContainer, styles.itemInvisible]} />;
+    }
+
+    // 현재 사용자가 이 도전과제의 작성자인지 확인
+    const isOwner = currentUser && currentUser.email && item.creator && 
+                   (item.creator === currentUser.email || item.creator === currentUser.id);
+
+    // 웹에서 이벤트 처리를 위한 함수
+    const handleDeletePress = (e) => {
+      // 이벤트 전파 중단 (웹과 모바일 모두 지원)
+      if (Platform.OS === 'web') {
+        if (e && e.nativeEvent) {
+          e.nativeEvent.stopPropagation();
+          e.nativeEvent.preventDefault();
+        }
+        if (e && e.stopPropagation) {
+          e.stopPropagation();
+        }
+        if (e && e.preventDefault) {
+          e.preventDefault();
+        }
+      } else {
+        if (e && e.stopPropagation) {
+          e.stopPropagation();
+        }
+      }
+      
+      console.log('삭제 버튼 클릭됨, 도전과제 ID:', item._id || item.id);
+      console.log('현재 플랫폼:', Platform.OS);
+      
+      // 플랫폼별 알림 처리
+      if (Platform.OS === 'web') {
+        // 웹에서는 confirm 사용
+        const confirmed = window.confirm("정말로 이 도전과제를 삭제하시겠습니까?");
+        if (confirmed) {
+          console.log('웹 삭제 확인됨, handleDelete 호출');
+          handleDelete(item._id || item.id);
+        }
+      } else {
+        // 모바일에서는 Alert 사용
+        Alert.alert(
+          "도전과제 삭제",
+          "정말로 이 도전과제를 삭제하시겠습니까?",
+          [
+            {
+              text: "취소",
+              style: "cancel",
+            },
+            {
+              text: "삭제",
+              style: "destructive",
+              onPress: () => {
+                console.log('모바일 삭제 확인됨, handleDelete 호출');
+                handleDelete(item._id || item.id);
+              },
+            },
+          ]
+        );
+      }
+    };
+
     return (
       <View style={styles.itemContainer}>
         <TouchableOpacity
@@ -137,10 +234,39 @@ export default function HomeScreen({ navigation }) {
             <Icon name="trophy-award" size={50} color="#E0DACE" />
           </View>
           <View style={styles.infoContainer}>
-            <Text style={styles.title} numberOfLines={2}>
-              {item.title}
-            </Text>
-            <Text style={styles.creator}>{item.creatorName}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title} numberOfLines={2}>
+                  {item.title || "제목 없음"}
+                </Text>
+                <Text style={styles.creator}>{item.creatorName || item.creator || "작성자 없음"}</Text>
+              </View>
+              
+              {/* 작성자만 삭제 버튼 보이기 */}
+              {isOwner && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: "#FF6B6B",
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 6,
+                    marginLeft: 8,
+                  }}
+                  onPress={handleDeletePress}
+                  activeOpacity={0.7}
+                  {...(Platform.OS === 'web' && {
+                    onPressIn: (e) => {
+                      e.stopPropagation();
+                    },
+                    onPressOut: (e) => {
+                      e.stopPropagation();
+                    }
+                  })}
+                >
+                  <Icon name="delete" size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </TouchableOpacity>
       </View>

@@ -358,108 +358,41 @@ const detectPostitMobileOpenCV = async (imageUri) => {
     analysisHeight = Math.round(height * ratio);
   }
   
-  // 2. Canvas를 이용한 픽셀 데이터 분석 (웹/모바일 공통)
-  return new Promise(async (resolve, reject) => {
-    try {
-      // 분석용 이미지 생성
-      const analysisImage = await manipulateAsync(
-        imageUri,
-        [{ resize: { width: analysisWidth, height: analysisHeight } }],
-        { format: SaveFormat.JPEG, compress: 0.9 }
-      );
-      
-      // 이미지를 Canvas에 로드하여 픽셀 데이터 추출
-      if (Platform.OS === 'web') {
-        // 웹 환경
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            canvas.width = analysisWidth;
-            canvas.height = analysisHeight;
-            ctx.drawImage(img, 0, 0, analysisWidth, analysisHeight);
-            
-            // 픽셀 데이터 가져오기
-            const imageData = ctx.getImageData(0, 0, analysisWidth, analysisHeight);
-            const rgbaData = imageData.data;
-            
-            // app_umai.py의 find_postit 로직 적용
-            const postitBounds = findPostitOpenCV(rgbaData, analysisWidth, analysisHeight, width, height);
-            
-            if (postitBounds) {
-              // 원본 해상도로 ROI 추출
-              extractROI(imageUri, postitBounds, resolve);
-            } else {
-              console.log('포스트잇 검출 실패, 중앙 영역 사용');
-              resolve(detectPostitMobileFallback(imageUri));
-            }
-          } catch (error) {
-            reject(error);
-          }
-        };
-        
-        img.onerror = () => reject(new Error('이미지 로드 실패'));
-        img.src = analysisImage.uri;
-        
-      } else {
-        // React Native 환경에서도 웹과 동일한 로직 시도
-        console.log('React Native 환경: 개선된 포스트잇 검출');
-        
-        // 모바일에서는 Canvas API가 없으므로 중앙 영역을 더 정교하게 추출
-        // 포스트잇이 일반적으로 화면 중앙 상단에 위치한다는 가정하에
-        // 키보드, 하단 UI 등을 제외한 더 작은 영역을 사용
-        
-        const cropX = Math.round(width * 0.2);       // 좌우 20% 제거 (더 많이)
-        const cropY = Math.round(height * 0.15);     // 상단 15% 제거 (덜)
-        const cropWidth = Math.round(width * 0.6);   // 가로 60% (더 좁게)
-        const cropHeight = Math.round(height * 0.5); // 세로 50% (더 좁게)
-        
-        console.log(`모바일 개선된 포스트잇 영역: ${cropX},${cropY} ${cropWidth}x${cropHeight}`);
-        
-        const croppedImage = await manipulateAsync(
-          imageUri,
-          [{
-            crop: {
-              originX: cropX,
-              originY: cropY,
-              width: cropWidth,
-              height: cropHeight,
-            }
-          }],
-          { format: SaveFormat.JPEG, compress: 0.8 }
-        );
-        
-        resolve(croppedImage.uri);
-      }
-      
-    } catch (error) {
-      reject(error);
-    }
-  });
+  // 2. 간단한 fallback 방식으로 변경 (복잡한 Canvas 로직 제거)
+  try {
+    console.log('포스트잇 검출: 간단한 중앙 영역 추출 방식 사용');
+    
+    // 모든 플랫폼에서 동일한 중앙 영역 추출 로직
+    const cropX = Math.round(width * 0.2);       // 좌우 20% 제거
+    const cropY = Math.round(height * 0.15);     // 상단 15% 제거  
+    const cropWidth = Math.round(width * 0.6);   // 가로 60%
+    const cropHeight = Math.round(height * 0.5); // 세로 50%
+    
+    console.log(`포스트잇 중앙 영역: ${cropX},${cropY} ${cropWidth}x${cropHeight}`);
+    
+    const croppedImage = await manipulateAsync(
+      imageUri,
+      [{
+        crop: {
+          originX: cropX,
+          originY: cropY,
+          width: cropWidth,
+          height: cropHeight,
+        }
+      }],
+      { format: SaveFormat.JPEG, compress: 0.8 }
+    );
+    
+    console.log('포스트잇 영역 추출 완료');
+    return croppedImage.uri;
+    
+  } catch (error) {
+    console.error('포스트잇 검출 오류:', error);
+    throw error;
+  }
 };
 
-// app_umai.py의 find_postit 로직을 JavaScript로 구현
-const findPostitOpenCV = (rgbaData, width, height, originalWidth, originalHeight) => {
-  console.log('OpenCV 스타일 포스트잇 검출 시작');
-  
-  // 1. RGB to HSV 변환
-  const hsvData = rgbToHsv(rgbaData, width, height);
-  
-  // 2. HSV 마스크 생성 (app_umai.py의 adaptive_inrange 구현)
-  const mask = createAdaptiveHSVMask(hsvData, width, height);
-  
-  // 3. 모폴로지 연산 (노이즈 제거)
-  const cleanMask = morphologyOperations(mask, width, height);
-  
-  // 4. 윤곽선 찾기 및 최적 후보 선택
-  const postitBounds = findBestPostitCandidate(cleanMask, width, height, originalWidth, originalHeight);
-  
-  return postitBounds;
-};
+// 이 함수는 더 이상 사용되지 않으므로 제거됨 (간단한 중앙 영역 추출 방식 사용)
 
 // Adaptive HSV 마스크 생성 (app_umai.py 방식)
 const createAdaptiveHSVMask = (hsvData, width, height) => {
@@ -806,64 +739,80 @@ const detectPostitServer = async (imageUri) => {
 
 // 포스트잇 검출 함수 (백엔드 서버 우선, 실패시 클라이언트 검출)
 const detectPostit = async (imageUri) => {
-  // 1차: 백엔드 서버 검출 시도 (app_umai.py 활용)
-  console.log('1차: 백엔드 서버 포스트잇 검출 시도');
+  console.log('🔍 포스트잇 검출 시작');
+  
+  // 1차: 백엔드 서버 검출 시도 (5초 타임아웃)
+  console.log('1차: 백엔드 서버 포스트잇 검출 시도 (5초 타임아웃)');
   try {
-    const serverResult = await detectPostitServer(imageUri);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('서버 타임아웃')), 5000)
+    );
+    
+    const serverResult = await Promise.race([
+      detectPostitServer(imageUri),
+      timeoutPromise
+    ]);
+    
     if (serverResult) {
       console.log('✅ 백엔드 서버 포스트잇 검출 성공');
       return serverResult;
     }
   } catch (error) {
-    console.error('❌ 백엔드 서버 검출 실패:', error);
+    console.error('❌ 백엔드 서버 검출 실패:', error.message);
   }
   
-  // 2차: 클라이언트 검출 시도
+  // 2차: 클라이언트 검출 시도 (빠르고 안정적)
   console.log('2차: 클라이언트 포스트잇 검출 시도');
-  if (Platform.OS === 'web') {
-    try {
-      const webResult = await detectPostitWeb(imageUri);
-      if (webResult !== imageUri) {
-        console.log('✅ 웹 클라이언트 포스트잇 검출 성공');
-        return webResult;
-      }
-    } catch (error) {
-      console.error('❌ 웹 포스트잇 검출 오류:', error);
-    }
-  } else {
-    try {
-      const mobileResult = await detectPostitMobile(imageUri);
-      if (mobileResult !== imageUri) {
-        console.log('✅ 모바일 클라이언트 포스트잇 검출 성공');
-        return mobileResult;
-      }
-    } catch (error) {
-      console.error('❌ 모바일 포스트잇 검출 오류:', error);
-    }
+  try {
+    const clientResult = await detectPostitMobile(imageUri);
+    console.log('✅ 클라이언트 포스트잇 검출 성공');
+    return clientResult;
+  } catch (error) {
+    console.error('❌ 클라이언트 포스트잇 검출 오류:', error);
   }
   
-  // 3차: 원본 이미지 사용
+  // 3차: 원본 이미지 사용 (최후의 수단)
   console.log('⚠️ 모든 포스트잇 검출 실패, 원본 이미지 사용');
   return imageUri;
 };
 
 // 메인 OCR 인증 함수
 export const verifyWithOCR = async (imageUri, expectedName) => {
+  console.log('🔍 OCR 인증 시작:', { 
+    imageUri: imageUri.substring(0, 50) + '...', 
+    expectedName 
+  });
+  
   try {
-    console.log('OCR 인증 시작:', { imageUri: imageUri.substring(0, 50) + '...', expectedName });
-    
-    // 1. 포스트잇 검출 (플랫폼별)
-    const roiImage = await detectPostit(imageUri);
-    console.log('포스트잇 검출 완료, ROI 사용:', roiImage !== imageUri);
+    // 1. 포스트잇 검출 (타임아웃 및 오류 처리 강화)
+    console.log('📋 1단계: 포스트잇 영역 검출');
+    let roiImage;
+    try {
+      roiImage = await detectPostit(imageUri);
+      console.log('✅ 포스트잇 검출 완료, ROI 사용:', roiImage !== imageUri);
+    } catch (error) {
+      console.warn('⚠️ 포스트잇 검출 실패, 원본 이미지 사용:', error.message);
+      roiImage = imageUri;
+    }
     
     // 2. 이미지를 base64로 변환
+    console.log('📋 2단계: 이미지 Base64 변환');
     const base64Image = await imageToBase64(roiImage);
     
-    // 3. OCR.space API 호출
-    const ocrResults = await callOCRSpace(base64Image);
-    console.log('OCR 결과:', ocrResults);
+    // 3. OCR.space API 호출 (타임아웃 10초)
+    console.log('📋 3단계: OCR.space API 호출');
+    const ocrTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('OCR API 타임아웃')), 10000)
+    );
     
-    if (ocrResults.length === 0) {
+    const ocrResults = await Promise.race([
+      callOCRSpace(base64Image),
+      ocrTimeoutPromise
+    ]);
+    
+    console.log('✅ OCR 결과:', ocrResults);
+    
+    if (!ocrResults || ocrResults.length === 0) {
       return {
         success: false,
         message: '텍스트를 인식할 수 없습니다. 포스트잇에 더 명확하게 써주세요.',
@@ -871,8 +820,9 @@ export const verifyWithOCR = async (imageUri, expectedName) => {
       };
     }
     
-    // 4. 닉네임 검증 (유사도 기반)
-    const SIMILARITY_THRESHOLD = 0.7; // 70% 이상 유사하면 인증 성공
+    // 4. 닉네임 검증 (간소화된 로직)
+    console.log('📋 4단계: 닉네임 검증');
+    const SIMILARITY_THRESHOLD = 0.6; // 60%로 낮춤 (더 관대하게)
     let bestMatch = null;
     let bestSimilarity = 0;
     
@@ -881,10 +831,11 @@ export const verifyWithOCR = async (imageUri, expectedName) => {
       const cleanText = text.replace(/\s+/g, '').toLowerCase();
       const cleanExpected = expectedName.replace(/\s+/g, '').toLowerCase();
       
-      if (cleanText === cleanExpected || cleanText.includes(cleanExpected)) {
+      if (cleanText === cleanExpected || cleanText.includes(cleanExpected) || cleanExpected.includes(cleanText)) {
+        console.log('✅ 정확한 매칭 발견:', text);
         return {
           success: true,
-          message: `인증 성공! "${expectedName}" 닉네임이 확인되었습니다. (정확히 일치)`,
+          message: `인증 성공! "${expectedName}" 닉네임이 확인되었습니다. (정확 매칭: "${text}")`,
           ocrResults
         };
       }
@@ -896,7 +847,7 @@ export const verifyWithOCR = async (imageUri, expectedName) => {
         bestMatch = text;
       }
       
-      // 단어 내 포함 검사 (부분 일치)
+      // 단어별 검사
       const words = text.split(/\s+/);
       for (const word of words) {
         const wordSimilarity = calculateSimilarity(word, expectedName);
@@ -906,6 +857,8 @@ export const verifyWithOCR = async (imageUri, expectedName) => {
         }
       }
     }
+    
+    console.log(`💯 최고 유사도: ${Math.round(bestSimilarity * 100)}% ("${bestMatch}")`);
     
     if (bestSimilarity >= SIMILARITY_THRESHOLD) {
       return {
@@ -922,7 +875,7 @@ export const verifyWithOCR = async (imageUri, expectedName) => {
     }
     
   } catch (error) {
-    console.error('OCR 인증 오류:', error);
+    console.error('❌ OCR 인증 오류:', error);
     return {
       success: false,
       message: 'OCR 인증 중 오류가 발생했습니다: ' + error.message,

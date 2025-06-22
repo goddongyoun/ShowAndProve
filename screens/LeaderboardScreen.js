@@ -135,15 +135,15 @@ const LeaderboardScreen = () => {
           <View style={styles.profileImageContainer}>
             <View style={[styles.topThreeProfileImage, styles.defaultProfileImage]}>
               <Text style={[globalStyles.text, {fontSize: 24, fontWeight: 'bold', color: '#FFFFFF'}]}>
-                {item.name[0]}
+                {item.name ? item.name[0] : '?'}
               </Text>
             </View>
           </View>
           <Text style={[globalStyles.text, {fontSize: 16, color: '#000000', textAlign: 'center'}]}>
-            {item.name}
+            {item.name || '알 수 없음'}
           </Text>
           <Text style={[globalStyles.text, {fontSize: 14, color: '#FFC300', fontWeight: '600'}]}>
-            {item.completedChallenges}회 완료
+            {item.completedChallenges || 0}회 완료
           </Text>
         </View>
       ))}
@@ -158,14 +158,14 @@ const LeaderboardScreen = () => {
       <View style={styles.profileImageContainer}>
         <View style={[styles.profileImage, styles.defaultProfileImage]}>
           <Text style={[globalStyles.text, {fontSize: 20, fontWeight: 'bold', color: '#FFFFFF'}]}>
-            {item.name[0]}
+            {item.name ? item.name[0] : '?'}
           </Text>
         </View>
       </View>
       <View style={styles.userInfo}>
-        <Text style={[globalStyles.text, {fontSize: 16, color: '#000000'}]}>{item.name}</Text>
+        <Text style={[globalStyles.text, {fontSize: 16, color: '#000000'}]}>{item.name || '알 수 없음'}</Text>
         <Text style={[globalStyles.text, {fontSize: 14, color: '#FFC300', fontWeight: '600'}]}>
-          {item.completedChallenges}회 완료
+          {item.completedChallenges || 0}회 완료
         </Text>
       </View>
     </View>
@@ -195,20 +195,31 @@ const LeaderboardScreen = () => {
 
       {topThree.length > 0 && renderTopThree()}
 
-      <FlatList
-        data={restUsers}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.email}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#FFF44F']}
-          />
-        }
-      />
+      {leaderboardData.length === 0 ? (
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40}}>
+          <Text style={[globalStyles.text, {fontSize: 18, color: '#5E4636', textAlign: 'center', marginBottom: 10}]}>
+            😊 아직 도전과제를 완료한 사용자가 없어요!
+          </Text>
+          <Text style={[globalStyles.text, {fontSize: 14, color: '#CDBCB0', textAlign: 'center'}]}>
+            첫 번째로 도전과제를 완료해보세요!
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={restUsers}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.email}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#FFF44F']}
+            />
+          }
+        />
+      )}
 
       {myRank && (
       <View style={styles.myRankContainer}>
@@ -222,14 +233,14 @@ const LeaderboardScreen = () => {
           <View style={styles.profileImageContainer}>
             <View style={[styles.profileImage, styles.defaultProfileImage]}>
               <Text style={[globalStyles.text, {fontSize: 20, fontWeight: 'bold', color: '#FFFFFF'}]}>
-                {myRank.name[0]}
+                {myRank.name ? myRank.name[0] : '?'}
               </Text>
             </View>
           </View>
           <View style={styles.userInfo}>
-            <Text style={[globalStyles.text, {fontSize: 16, color: '#000000'}]}>{myRank.name}</Text>
+            <Text style={[globalStyles.text, {fontSize: 16, color: '#000000'}]}>{myRank.name || '알 수 없음'}</Text>
             <Text style={[globalStyles.text, {fontSize: 14, color: '#FFC300', fontWeight: '600'}]}>
-                {myRank.completedChallenges}회 완료
+                {myRank.completedChallenges || 0}회 완료
             </Text>
           </View>
         </View>

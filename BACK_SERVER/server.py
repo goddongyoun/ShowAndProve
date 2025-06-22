@@ -24,6 +24,7 @@ from werkzeug.utils import secure_filename
 import base64
 import io
 from PIL import Image
+import threading  # threading 모듈 추가
 from app_umai import find_postit  # 기존 함수 그대로 사용
 
 
@@ -50,6 +51,55 @@ def get_and_clear_notifications(user_email):
         del notification_store[user_email]
         print(f"🗑️  알림 전송 후 삭제: {user_email} ({len(notifications)}개)")
     return notifications
+
+def notify_users_for_tag_challenge(challenge_id, challenge_title, tag_ids):
+    """
+    태그에 관심 있는 사용자들에게 새로운 도전과제 알림을 보내는 함수
+    백그라운드 스레드에서 실행됩니다.
+    """
+    try:
+        print(f"🔔 태그 알림 처리 시작: 도전과제 ID={challenge_id}, 태그 IDs={tag_ids}")
+        
+        connection = get_db_connection()
+        if connection is None:
+            print("❌ 알림 처리 중 데이터베이스 연결 실패")
+            return
+            
+        cursor = connection.cursor()
+        
+        # 해당 태그들에 관심 있는 사용자들 조회
+        if tag_ids:
+            tag_ids_str = ', '.join(['%s'] * len(tag_ids))
+            query = f"""
+            SELECT DISTINCT u.email, u.name, t.name as tag_name
+            FROM users u
+            JOIN user_interests ui ON u.id = ui.user_id
+            JOIN tags t ON ui.tag_id = t.id
+            WHERE ui.tag_id IN ({tag_ids_str})
+            """
+            cursor.execute(query, tag_ids)
+            interested_users = cursor.fetchall()
+            
+            print(f"📋 관심 있는 사용자 {len(interested_users)}명 발견")
+            
+            # 각 사용자에게 알림 추가
+            for user in interested_users:
+                notification_data = {
+                    'type': 'new_challenge',
+                    'title': f'새로운 도전과제: {challenge_title}',
+                    'message': f'관심 태그 "{user["tag_name"]}"의 새로운 도전과제가 등록되었습니다!',
+                    'challenge_id': challenge_id,
+                    'created_at': datetime.datetime.now().isoformat()
+                }
+                add_notification(user['email'], notification_data)
+                print(f"✅ 알림 전송: {user['email']} ({user['name']})")
+        
+        cursor.close()
+        connection.close()
+        print(f"🎉 태그 알림 처리 완료: 도전과제 ID={challenge_id}")
+        
+    except Exception as e:
+        print(f"❌ 태그 알림 처리 오류: {e}")
 
 app = Flask(__name__)
 CORS(app)
@@ -437,6 +487,17 @@ def get_challenges():
                         # 24시간 미만이지만 아직 만료되지 않은 경우
                         days_left = 0
             
+            # 각 도전과제의 태그 정보 조회
+            tag_query = """
+            SELECT t.name
+            FROM tags t
+            JOIN challenge_tags ct ON t.id = ct.tag_id
+            WHERE ct.challenge_id = %s
+            """
+            cursor.execute(tag_query, (challenge['_id'],))
+            tag_results = cursor.fetchall()
+            tags = [tag['name'] for tag in tag_results] if tag_results else []
+            
             challenge_dict = {
                 '_id': challenge['_id'],
                 'title': challenge['title'], 
@@ -448,7 +509,8 @@ def get_challenges():
                 'status': challenge['status'],  # 상태 추가
                 'is_expired': is_expired,  # 만료 여부 추가
                 'days_left': days_left,  # 남은 일수 추가 (만료된 경우 null)
-                'submission_count': challenge['submission_count']  # 참여자 수
+                'submission_count': challenge['submission_count'],  # 참여자 수
+                'tags': tags  # 태그 정보 추가
             }
             challenge_list.append(challenge_dict)
         
@@ -1072,6 +1134,139 @@ def get_notifications(user_email):
 
 # 기본 루트
 # 기본 루트
+# 사용자 관심 태그 관리 API
+@app.route('/api/users/interests', methods=['POST'])
+@token_required
+def add_user_interest(current_user):
+    """사용자 관심 태그 추가"""
+    try:
+        data = request.get_json()
+        tag_name = data.get('tag_name')
+        
+        if not tag_name:
+            return jsonify({'error': '태그 이름이 필요합니다'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 태그 존재 여부 확인
+        cursor.execute("SELECT id FROM tags WHERE name = %s", (tag_name,))
+        tag_result = cursor.fetchone()
+        
+        if not tag_result:
+            return jsonify({'error': '존재하지 않는 태그입니다'}), 404
+            
+        tag_id = tag_result['id']
+        
+        # 이미 관심 태그로 등록되어 있는지 확인
+        cursor.execute(
+            "SELECT id FROM user_interests WHERE user_id = %s AND tag_id = %s",
+            (current_user['id'], tag_id)
+        )
+        existing = cursor.fetchone()
+        
+        if existing:
+            return jsonify({'error': '이미 관심 태그로 등록되어 있습니다'}), 400
+        
+        # 관심 태그 추가
+        cursor.execute(
+            "INSERT INTO user_interests (user_id, tag_id) VALUES (%s, %s)",
+            (current_user['id'], tag_id)
+        )
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'message': '관심 태그가 추가되었습니다',
+            'tag_name': tag_name
+        }), 201
+        
+    except Exception as e:
+        print(f"관심 태그 추가 오류: {e}")
+        return jsonify({'error': '관심 태그 추가 중 오류가 발생했습니다'}), 500
+
+@app.route('/api/users/interests', methods=['GET'])
+@token_required
+def get_user_interests(current_user):
+    """사용자 관심 태그 조회"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 사용자의 관심 태그들 조회
+        query = """
+        SELECT t.id, t.name, t.created_at, ui.created_at as interest_added_at,
+               COUNT(DISTINCT ct.challenge_id) as challenge_count
+        FROM user_interests ui
+        JOIN tags t ON ui.tag_id = t.id
+        LEFT JOIN challenge_tags ct ON t.id = ct.tag_id
+        WHERE ui.user_id = %s
+        GROUP BY t.id, t.name, t.created_at, ui.created_at
+        ORDER BY ui.created_at DESC
+        """
+        cursor.execute(query, (current_user['id'],))
+        interests = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'interests': interests,
+            'count': len(interests)
+        }), 200
+        
+    except Exception as e:
+        print(f"관심 태그 조회 오류: {e}")
+        return jsonify({'error': '관심 태그 조회 중 오류가 발생했습니다'}), 500
+
+@app.route('/api/users/interests/<int:tag_id>', methods=['DELETE'])
+@token_required
+def remove_user_interest(current_user, tag_id):
+    """사용자 관심 태그 삭제"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 관심 태그 존재 여부 확인
+        cursor.execute(
+            "SELECT ui.id, t.name FROM user_interests ui JOIN tags t ON ui.tag_id = t.id WHERE ui.user_id = %s AND ui.tag_id = %s",
+            (current_user['id'], tag_id)
+        )
+        interest = cursor.fetchone()
+        
+        if not interest:
+            return jsonify({'error': '등록되지 않은 관심 태그입니다'}), 404
+        
+        # 관심 태그 삭제
+        cursor.execute(
+            "DELETE FROM user_interests WHERE user_id = %s AND tag_id = %s",
+            (current_user['id'], tag_id)
+        )
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'message': '관심 태그가 삭제되었습니다',
+            'tag_name': interest['name']
+        }), 200
+        
+    except Exception as e:
+        print(f"관심 태그 삭제 오류: {e}")
+        return jsonify({'error': '관심 태그 삭제 중 오류가 발생했습니다'}), 500
+
 @app.route('/')
 def home():
     return jsonify({
@@ -1170,6 +1365,24 @@ def home():
                     "request": "없음 (토큰 필요, 본인만 가능)",
                     "response_success": {"message": "사용자 계정이 성공적으로 삭제되었습니다", "deleted_user": {"id": "int", "email": "string", "name": "string"}, "deleted_data": {"challenges": "int", "submissions": "int"}},
                     "response_error": {"error": "본인 계정만 삭제할 수 있습니다"}
+                },
+                "POST /api/users/interests": {
+                    "description": "사용자 관심 태그 추가",
+                    "request": {"tag_name": "string"},
+                    "response_success": {"message": "관심 태그가 추가되었습니다", "tag_name": "string"},
+                    "response_error": {"error": "이미 관심 태그로 등록되어 있습니다"}
+                },
+                "GET /api/users/interests": {
+                    "description": "사용자 관심 태그 조회",
+                    "request": "없음 (토큰 필요)",
+                    "response_success": {"interests": [{"id": "int", "name": "string", "created_at": "datetime", "interest_added_at": "datetime", "challenge_count": "int"}], "count": "int"},
+                    "response_error": {"error": "관심 태그 조회 중 오류가 발생했습니다"}
+                },
+                "DELETE /api/users/interests/{tag_id}": {
+                    "description": "사용자 관심 태그 삭제",
+                    "request": "없음 (토큰 필요)",
+                    "response_success": {"message": "관심 태그가 삭제되었습니다", "tag_name": "string"},
+                    "response_error": {"error": "등록되지 않은 관심 태그입니다"}
                 }
             },
             "알림": {
@@ -1235,6 +1448,19 @@ def home():
         "challenge_updates": {
             "expired_date": "도전과제 생성 시 만기일 설정 가능 (기본값: 생성일+7일)",
             "status_info": "is_expired, days_left 필드를 통한 만료 정보 제공"
+        },
+        "required_database_tables": {
+            "user_interests": {
+                "description": "사용자 관심 태그 저장 테이블",
+                "schema": {
+                    "id": "INT PRIMARY KEY AUTO_INCREMENT",
+                    "user_id": "INT NOT NULL (users.id 외래키)",
+                    "tag_id": "INT NOT NULL (tags.id 외래키)",
+                    "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+                    "UNIQUE KEY": "unique_user_tag (user_id, tag_id)"
+                },
+                "create_sql": "CREATE TABLE user_interests (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, tag_id INT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY unique_user_tag (user_id, tag_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE);"
+            }
         }
     })
 

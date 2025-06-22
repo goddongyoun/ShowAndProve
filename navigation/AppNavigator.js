@@ -24,12 +24,12 @@ const PROTECTED_SCREENS = ['Home', 'ChallengeCreate', 'ChallengeList', 'Challeng
 // 헤더 표시 제어 변수 (true로 변경하면 헤더가 보임)
 const SHOW_HEADER = false;
 
-export default function AppNavigator({ onLoginStateChange }) {
+export default function AppNavigator({ onLogin, onLogout, isLoggedIn: parentIsLoggedIn }) {
   // MyPage 래퍼 컴포넌트 (AppNavigator 함수 내부로 이동)
   const MyPageWrapper = (props) => {
-    return <MyPage {...props} route={{...props.route, params: {...props.route.params, onLoginStateChange}}} />;
+    return <MyPage {...props} route={{...props.route, params: {...props.route.params, onLogout}}} />;
   };
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(parentIsLoggedIn || false);
   const [isLoading, setIsLoading] = useState(true);
 
   // 앱 시작시 토큰 확인
@@ -50,16 +50,14 @@ export default function AppNavigator({ onLoginStateChange }) {
       console.log('로그인 상태 설정:', loginState);
       setIsLoggedIn(loginState);
       
-      // App.js로 로그인 상태 전달
-      if (onLoginStateChange) {
-        onLoginStateChange(loginState);
+      // 로그인 상태라면 App.js에 사용자 정보 전달
+      if (loginState && user && onLogin) {
+        const userData = JSON.parse(user);
+        await onLogin(userData);
       }
     } catch (error) {
       console.error('토큰 확인 오류:', error);
       setIsLoggedIn(false);
-      if (onLoginStateChange) {
-        onLoginStateChange(false);
-      }
     } finally {
       setIsLoading(false);
     }
@@ -74,9 +72,9 @@ export default function AppNavigator({ onLoginStateChange }) {
       await AsyncStorage.removeItem('user');
       setIsLoggedIn(false);
       
-      // App.js로 로그인 상태 전달
-      if (onLoginStateChange) {
-        onLoginStateChange(false);
+      // App.js로 로그아웃 알림
+      if (onLogout) {
+        onLogout();
       }
       
       console.log('로그아웃 완료');
@@ -92,11 +90,11 @@ export default function AppNavigator({ onLoginStateChange }) {
   };
 
   // 로그인 성공 후 호출할 함수
-  const onLoginSuccess = () => {
+  const onLoginSuccess = async (user) => {
     setIsLoggedIn(true);
-    // App.js로 로그인 상태 전달
-    if (onLoginStateChange) {
-      onLoginStateChange(true);
+    // App.js로 로그인 성공 알림
+    if (onLogin) {
+      await onLogin(user);
     }
   };
 

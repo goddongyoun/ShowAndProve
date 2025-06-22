@@ -8,10 +8,12 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
+  Alert,
 } from "react-native";
-import BottomNavBar from "../navigation/BottomNavBar";
+
 import { getVerifications } from "../services/challengeService";
 import { getCurrentUser } from "../services/authService";
+import api from "../services/api";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { globalStyles } from "../utils/styles";
 
@@ -112,6 +114,22 @@ export default function ChallengeDetail({ route, navigation }) {
     });
   };
 
+  const handleDelete = async () => {
+    try {
+      const challengeId = challenge._id || challenge.id;
+      await api.challenge.delete(challengeId);
+      Alert.alert("성공", "도전과제가 성공적으로 삭제되었습니다.", [
+        {
+          text: "확인",
+          onPress: () => navigation.navigate("Home"),
+        },
+      ]);
+    } catch (error) {
+      console.error("도전과제 삭제 오류:", error);
+      Alert.alert("오류", "도전과제를 삭제하는 중 오류가 발생했습니다: " + error.message);
+    }
+  };
+
   const renderVerification = ({ item }) => {
     const userName = item.user_name || item.user_email || "사용자";
     const commentText =
@@ -182,11 +200,12 @@ export default function ChallengeDetail({ route, navigation }) {
       <Text
         style={[
           globalStyles.text,
-          { fontSize: 24, color: "#5E4636", marginBottom: 10 },
+          { fontSize: 24, color: "#5E4636", marginBottom: 15 },
         ]}
       >
         {challenge.title || "제목 없음"}
       </Text>
+      
       <Text
         style={[
           globalStyles.text,
@@ -195,16 +214,51 @@ export default function ChallengeDetail({ route, navigation }) {
       >
         {challenge.description || challenge.content || "내용 없음"}
       </Text>
-      <Text style={[globalStyles.text, { color: "#888", marginBottom: 10 }]}>
+      <Text style={[globalStyles.text, { color: "#888", marginBottom: 8 }]}>
         작성자: {challenge.creator || challenge.creatorName || "알 수 없음"}
       </Text>
-      <Text style={[globalStyles.text, { color: "#888", marginBottom: 20 }]}>
+      <Text style={[globalStyles.text, { color: "#888", marginBottom: 8 }]}>
         {challenge.createdAt || challenge.created_at
           ? `생성일: ${new Date(
               challenge.createdAt || challenge.created_at
             ).toLocaleDateString()}`
           : "생성일: 날짜 없음"}
       </Text>
+      
+      {/* 만료일 표시 */}
+      <Text style={[globalStyles.text, { color: "#888", marginBottom: 8 }]}>
+        {challenge.expired_date || challenge.expiredDate
+          ? `만료일: ${new Date(
+              challenge.expired_date || challenge.expiredDate
+            ).toLocaleDateString()}`
+          : "만료일: 정보 없음"}
+      </Text>
+      
+      {/* 태그 표시 */}
+      {(challenge.tags && challenge.tags.length > 0) && (
+        <View style={{ marginBottom: 15 }}>
+          <Text style={[globalStyles.text, { color: "#888", marginBottom: 5 }]}>
+            태그:
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {challenge.tags.map((tag, index) => (
+              <View
+                key={index}
+                style={{
+                  backgroundColor: "#FFE357",
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={[globalStyles.text, { fontSize: 12, color: "#5E4636" }]}>
+                  {tag}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
       <TouchableOpacity
         style={[
           globalStyles.button,

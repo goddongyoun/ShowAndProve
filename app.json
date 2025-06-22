@@ -4,6 +4,7 @@
     "slug": "ChallengeApp",
     "version": "1.0.0",
     "orientation": "portrait",
+
     "platforms": [
       "ios",
       "android",
@@ -36,11 +37,13 @@
         "CAMERA"
       ]
     },
+
     "web": {
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-notifications"
     ],
     "androidNavigationBar": {
       "visible": "immersive"
