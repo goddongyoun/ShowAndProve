@@ -132,7 +132,8 @@ def token_required(f):
             current_user = {
                 'id': user['id'],
                 'email': user['email'],
-                'name': user['name']
+                'name': user['name'],
+                'isAdmin': user['isAdmin']  # isAdmin 필드 추가
             }
             
         except jwt.ExpiredSignatureError:
@@ -242,7 +243,8 @@ def login_user():
             'user': {
                 'id': user['id'],
                 'email': user['email'],
-                'name': user['name']
+                'name': user['name'],
+                'isAdmin': user['isAdmin'],
             }
         })
         
@@ -253,6 +255,34 @@ def login_user():
         cursor.close()
         connection.close()
 
+@app.route('/api/users', methods=['GET'])
+@token_required
+def get_all_users(current_user):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 비밀번호를 제외한 모든 사용자 정보 조회
+        query = """
+        SELECT id, email, name, isAdmin, created_at
+        FROM users
+        ORDER BY id
+        """
+        cursor.execute(query)
+        users = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify(users), 200
+        
+    except Exception as e:
+        print(f"사용자 조회 오류: {e}")
+        return jsonify({'error': '사용자 조회 중 오류가 발생했습니다'}), 500
+
 # 도전과제 생성 API (사진 없이 기본 정보만)
 @app.route('/api/challenges', methods=['POST'])
 @token_required
@@ -261,6 +291,8 @@ def create_challenge(current_user):
         data = request.get_json()
         title = data.get('title')
         content = data.get('content')
+        tags = data.get('tags', [])  # 태그 목록 가져오기 (없으면 빈 배열)
+        expired_date = data.get('expired_date')  # 만기일 가져오기
         
         if not title or not content:
             return jsonify({'error': '제목과 내용을 모두 입력해주세요'}), 400
@@ -271,28 +303,93 @@ def create_challenge(current_user):
             
         cursor = connection.cursor()
         
-        # challenges 테이블에 기본 정보만 저장 (사진 없음)
-        query = """
-        INSERT INTO challenges (title, content, creator, creator_name, created_at) 
-        VALUES (%s, %s, %s, %s, %s)
-        """
-        cursor.execute(query, (
-            title, 
-            content, 
-            current_user['email'], 
-            current_user['name'],
-            datetime.datetime.now()
-        ))
-        connection.commit()
-        challenge_id = cursor.lastrowid
-        cursor.close()
-        connection.close()
+        # 트랜잭션 시작
+        connection.begin()
         
-        return jsonify({
-            'message': '도전과제가 성공적으로 생성되었습니다',
-            'challenge_id': challenge_id
-        }), 201
-        
+        try:
+            # 현재 시간 계산
+            now = datetime.datetime.now()
+            
+            # expired_date가 없거나 null이면 기본값으로 생성일 + 7일 설정
+            if not expired_date:
+                expired_date = now + datetime.timedelta(days=7)
+            else:
+                # 문자열로 받은 경우 datetime 객체로 변환
+                try:
+                    expired_date = datetime.datetime.fromisoformat(expired_date.replace('Z', '+00:00'))
+                except (ValueError, AttributeError):
+                    # 유효하지 않은 날짜 형식인 경우 기본값 사용
+                    expired_date = now + datetime.timedelta(days=7)
+            
+            # 1. challenges 테이블에 기본 정보와 만기일 저장
+            query = """
+            INSERT INTO challenges (title, content, creator, creator_name, created_at, expired_date) 
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(query, (
+                title, 
+                content, 
+                current_user['email'], 
+                current_user['name'],
+                now,
+                expired_date
+            ))
+            
+            challenge_id = cursor.lastrowid
+            
+            # 2. 태그 처리
+            if tags and len(tags) > 0:
+                for tag_name in tags:
+                    # 2-1. 태그가 이미 존재하는지 확인
+                    cursor.execute("SELECT id FROM tags WHERE name = %s", (tag_name,))
+                    tag_result = cursor.fetchone()
+                    
+                    if tag_result:
+                        # 기존 태그인 경우
+                        tag_id = tag_result['id']
+                    else:
+                        # 새 태그인 경우, 추가
+                        cursor.execute("INSERT INTO tags (name) VALUES (%s)", (tag_name,))
+                        tag_id = cursor.lastrowid
+                    
+                    # 2-2. 챌린지-태그 연결 정보 저장
+                    cursor.execute(
+                        "INSERT INTO challenge_tags (challenge_id, tag_id) VALUES (%s, %s)",
+                        (challenge_id, tag_id)
+                    )
+            
+            # 트랜잭션 커밋
+            connection.commit()
+            
+            # 3. 태그에 관심 있는 사용자들에게 알림 보내기 (트랜잭션 외부에서 처리)
+            if tags and len(tags) > 0:
+                # 처리된 태그 ID들 가져오기
+                tag_names_str = ', '.join(['%s'] * len(tags))
+                cursor.execute(f"SELECT id FROM tags WHERE name IN ({tag_names_str})", tags)
+                tag_ids = [row['id'] for row in cursor.fetchall()]
+                
+                # 백그라운드에서 알림 처리
+                threading.Thread(
+                    target=notify_users_for_tag_challenge,
+                    args=(challenge_id, title, tag_ids)
+                ).start()
+            
+            # 만기일 포맷 변환 (응답용)
+            formatted_expired_date = expired_date.isoformat() if expired_date else None
+            
+            return jsonify({
+                'message': '도전과제가 성공적으로 생성되었습니다',
+            }), 201
+            
+        except Exception as e:
+            # 오류 발생 시 롤백
+            connection.rollback()
+            print(f"도전과제 생성 오류: {e}")
+            return jsonify({'error': '도전과제 생성 중 오류가 발생했습니다'}), 500
+        finally:
+            cursor.close()
+            connection.close()
+            
     except Exception as e:
         print(f"도전과제 생성 오류: {e}")
         return jsonify({'error': '도전과제 생성 중 오류가 발생했습니다'}), 500
@@ -307,23 +404,39 @@ def get_challenges():
             
         cursor = connection.cursor()
         
-        # challenges 테이블에서 기본 정보 조회
+        # challenges 테이블에서 기본 정보 조회 (expired_date 추가)
         query = """
-        SELECT c.id as _id, c.title, c.content, c.creator, c.creator_name as creatorName, c.created_at,
+        SELECT c.id as _id, c.title, c.content, c.creator, c.creator_name as creatorName, 
+               c.created_at, c.expired_date, c.status,
                COUNT(cs.id) as submission_count
         FROM challenges c
         LEFT JOIN challenge_submissions cs ON c.id = cs.challenge_id
-        GROUP BY c.id, c.title, c.content, c.creator, c.creator_name, c.created_at
+        GROUP BY c.id, c.title, c.content, c.creator, c.creator_name, c.created_at, c.expired_date, c.status
         ORDER BY c.created_at DESC
         """
         cursor.execute(query)
         challenges = cursor.fetchall()
-        cursor.close()
-        connection.close()
+        
+        # 현재 시간 가져오기 (만료 여부 계산용)
+        now = datetime.datetime.now()
         
         # 딕셔너리로 변환
         challenge_list = []
         for challenge in challenges:
+            # 만료 여부 계산
+            is_expired = False
+            days_left = None
+            
+            if challenge['expired_date']:
+                is_expired = challenge['expired_date'] < now
+                if not is_expired:
+                    # 남은 일수 계산
+                    delta = challenge['expired_date'] - now
+                    days_left = delta.days
+                    if delta.seconds > 0 and days_left == 0:
+                        # 24시간 미만이지만 아직 만료되지 않은 경우
+                        days_left = 0
+            
             challenge_dict = {
                 '_id': challenge['_id'],
                 'title': challenge['title'], 
@@ -331,15 +444,137 @@ def get_challenges():
                 'creator': challenge['creator'],
                 'creatorName': challenge['creatorName'],
                 'created_at': challenge['created_at'],
+                'expired_date': challenge['expired_date'],  # 만기일 추가
+                'status': challenge['status'],  # 상태 추가
+                'is_expired': is_expired,  # 만료 여부 추가
+                'days_left': days_left,  # 남은 일수 추가 (만료된 경우 null)
                 'submission_count': challenge['submission_count']  # 참여자 수
             }
             challenge_list.append(challenge_dict)
+        
+        cursor.close()
+        connection.close()
         
         return jsonify(challenge_list), 200
         
     except Exception as e:
         print(f"도전과제 조회 오류: {e}")
         return jsonify({'error': '도전과제 조회 중 오류가 발생했습니다'}), 500
+
+@app.route('/api/tags', methods=['GET'])
+def get_all_tags():
+    try:
+        # 정렬 및 필터링 옵션
+        sort_by = request.args.get('sort', 'name')  # 기본값: 이름순
+        sort_order = request.args.get('order', 'asc')  # 기본값: 오름차순
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 기본 쿼리: 태그 목록 조회
+        query = """
+        SELECT t.id, t.name, t.created_at, 
+               COUNT(DISTINCT ct.challenge_id) as challenge_count
+        FROM tags t
+        LEFT JOIN challenge_tags ct ON t.id = ct.tag_id
+        GROUP BY t.id, t.name, t.created_at
+        """
+        
+        # 정렬 기준 적용
+        if sort_by == 'name':
+            query += " ORDER BY t.name"
+        elif sort_by == 'popular':
+            query += " ORDER BY challenge_count"
+        elif sort_by == 'recent':
+            query += " ORDER BY t.created_at"
+        else:
+            query += " ORDER BY t.name"  # 기본값
+        
+        # 정렬 방향 적용
+        query += " DESC" if sort_order.lower() == 'desc' else " ASC"
+        
+        cursor.execute(query)
+        tags = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'tags': tags,
+            'count': len(tags)
+        }), 200
+        
+    except Exception as e:
+        print(f"태그 목록 조회 오류: {e}")
+        return jsonify({'error': '태그 목록 조회 중 오류가 발생했습니다'}), 500
+
+@app.route('/api/tags/<tag_name>/challenges', methods=['GET'])
+def get_challenges_by_tag(tag_name):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': '데이터베이스 연결 실패'}), 500
+            
+        cursor = connection.cursor()
+        
+        # 1. 태그 존재 여부 확인
+        cursor.execute("SELECT id FROM tags WHERE name = %s", (tag_name,))
+        tag_result = cursor.fetchone()
+        
+        if not tag_result:
+            return jsonify({
+                'exists': False,
+                'message': f'"{tag_name}" 태그가 존재하지 않습니다.',
+                'challenges': []
+            }), 404
+            
+        tag_id = tag_result['id']
+        
+        # 2. 해당 태그를 가진 도전과제 조회
+        query = """
+        SELECT c.id as _id, c.title, c.content, c.creator, c.creator_name as creatorName, 
+               c.status, c.created_at, c.expired_date,
+               COUNT(DISTINCT cs.id) as submission_count
+        FROM challenges c
+        JOIN challenge_tags ct ON c.id = ct.challenge_id
+        LEFT JOIN challenge_submissions cs ON c.id = cs.challenge_id
+        WHERE ct.tag_id = %s
+        GROUP BY c.id, c.title, c.content, c.creator, c.creator_name, c.status, c.created_at, c.expired_date
+        ORDER BY c.created_at DESC
+        """
+        cursor.execute(query, (tag_id,))
+        challenges = cursor.fetchall()
+        
+        # 3. 각 도전과제의 모든 태그 정보 추가 (선택적)
+        for challenge in challenges:
+            tag_query = """
+            SELECT t.id, t.name
+            FROM tags t
+            JOIN challenge_tags ct ON t.id = ct.tag_id
+            WHERE ct.challenge_id = %s
+            """
+            cursor.execute(tag_query, (challenge['_id'],))
+            challenge['tags'] = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'exists': True,
+            'tag': {
+                'id': tag_id,
+                'name': tag_name
+            },
+            'challenges': challenges,
+            'count': len(challenges)
+        }), 200
+        
+    except Exception as e:
+        print(f"태그별 도전과제 조회 오류: {e}")
+        return jsonify({'error': '태그별 도전과제 조회 중 오류가 발생했습니다'}), 500
 
 # 도전과제 참여/사진 제출 API
 @app.route('/api/challenges/<int:challenge_id>/submit', methods=['POST'])
@@ -591,7 +826,12 @@ def delete_challenge(current_user, challenge_id):
             
         cursor = connection.cursor()
         
-        # 권한 확인 (생성자만 삭제 가능)
+        # 사용자 정보에서 관리자 여부 확인
+        cursor.execute("SELECT isAdmin FROM users WHERE id = %s", (current_user['id'],))
+        user_info = cursor.fetchone()
+        is_admin = user_info and user_info.get('isAdmin', False)
+        
+        # 도전과제 정보 조회
         cursor.execute("SELECT creator FROM challenges WHERE id = %s", (challenge_id,))
         result = cursor.fetchone()
         
@@ -600,7 +840,8 @@ def delete_challenge(current_user, challenge_id):
             connection.close()
             return jsonify({'error': '존재하지 않는 도전과제입니다'}), 404
         
-        if result['creator'] != current_user['email']:
+        # 권한 확인: 관리자이거나 생성자인 경우만 삭제 가능
+        if not is_admin and result['creator'] != current_user['email']:
             cursor.close()
             connection.close()
             return jsonify({'error': '삭제 권한이 없습니다'}), 403
@@ -830,6 +1071,7 @@ def get_notifications(user_email):
         }), 500
 
 # 기본 루트
+# 기본 루트
 @app.route('/')
 def home():
     return jsonify({
@@ -846,21 +1088,21 @@ def home():
                 "POST /api/login": {
                     "description": "로그인",
                     "request": {"email": "string", "password": "string"},
-                    "response_success": {"message": "로그인 성공", "token": "string", "user": {"id": "int", "email": "string", "name": "string"}},
+                    "response_success": {"message": "로그인 성공", "token": "string", "user": {"id": "int", "email": "string", "name": "string", "isAdmin": "boolean"}},
                     "response_error": {"error": "이메일 또는 비밀번호가 잘못되었습니다"}
                 }
             },
             "도전과제": {
                 "POST /api/challenges": {
                     "description": "도전과제 생성",
-                    "request": {"title": "string", "content": "string"},
-                    "response_success": {"message": "도전과제가 성공적으로 생성되었습니다", "challenge_id": "int"},
+                    "request": {"title": "string", "content": "string", "tags": ["string"], "expired_date": "string (ISO 8601 형식, 선택적)"},
+                    "response_success": {"message": "도전과제가 성공적으로 생성되었습니다"},
                     "response_error": {"error": "제목과 내용을 모두 입력해주세요"}
                 },
                 "GET /api/challenges": {
                     "description": "도전과제 목록 조회",
                     "request": "없음",
-                    "response_success": [{"_id": "int", "title": "string", "content": "string", "creator": "string", "creatorName": "string", "created_at": "datetime", "submission_count": "int"}],
+                    "response_success": [{"_id": "int", "title": "string", "content": "string", "creator": "string", "creatorName": "string", "created_at": "datetime", "expired_date": "datetime", "status": "string", "is_expired": "boolean", "days_left": "int|null", "submission_count": "int"}],
                     "response_error": {"error": "도전과제 조회 중 오류가 발생했습니다"}
                 },
                 "DELETE /api/challenges/{id}": {
@@ -874,6 +1116,20 @@ def home():
                     "request": {"status": "string"},
                     "response_success": {"message": "도전과제 상태 업데이트 성공", "status": "string"},
                     "response_error": {"error": "상태 변경 권한이 없습니다"}
+                }
+            },
+            "태그": {
+                "GET /api/tags": {
+                    "description": "모든 태그 목록 조회",
+                    "request": "없음 (정렬: ?sort=name|popular|recent&order=asc|desc)",
+                    "response_success": {"tags": [{"id": "int", "name": "string", "created_at": "datetime", "challenge_count": "int"}], "count": "int"},
+                    "response_error": {"error": "태그 목록 조회 중 오류가 발생했습니다"}
+                },
+                "GET /api/tags/{tag_name}/challenges": {
+                    "description": "특정 태그의 도전과제 목록 조회",
+                    "request": "없음",
+                    "response_success": {"exists": "true", "tag": {"id": "int", "name": "string"}, "challenges": [], "count": "int"},
+                    "response_error": {"error": "태그별 도전과제 조회 중 오류가 발생했습니다"}
                 }
             },
             "참여/제출": {
@@ -897,6 +1153,12 @@ def home():
                 }
             },
             "사용자": {
+                "GET /api/users": {
+                    "description": "전체 사용자 목록 조회",
+                    "request": "없음 (토큰 필요)",
+                    "response_success": [{"id": "int", "email": "string", "name": "string", "isAdmin": "boolean", "created_at": "datetime"}],
+                    "response_error": {"error": "사용자 조회 중 오류가 발생했습니다"}
+                },
                 "GET /api/users/{user_email}/challenges": {
                     "description": "사용자 참여 도전과제 조회",
                     "request": "없음",
@@ -914,8 +1176,8 @@ def home():
                 "GET /api/notify/{user_email}": {
                     "description": "사용자 알림 조회 후 삭제",
                     "request": "없음",
-                    "response_success": {"success": true, "count": "int", "notifications": [{"type": "string", "title": "string", "message": "string", "challenge_id": "int", "timestamp": "string"}], "timestamp": "string"},
-                    "response_error": {"success": false, "error": "알림 조회 중 오류가 발생했습니다", "notifications": []}
+                    "response_success": {"success": "true", "count": "int", "notifications": [{"type": "string", "title": "string", "message": "string", "challenge_id": "int", "timestamp": "string"}], "timestamp": "string"},
+                    "response_error": {"success": "false", "error": "알림 조회 중 오류가 발생했습니다", "notifications": []}
                 },
                 "GET /api/notify/status": {
                     "description": "전체 알림 상태 확인 (디버깅용)",
@@ -934,8 +1196,8 @@ def home():
                 "POST /api/detect-postit": {
                     "description": "포스트잇 검출 API",
                     "request": {"image": "base64 string"},
-                    "response_success": {"success": true, "message": "포스트잇 검출 성공", "postit_found": true, "postit_image": "base64 string"},
-                    "response_error": {"success": false, "message": "포스트잇을 찾지 못했습니다", "postit_found": false}
+                    "response_success": {"success": "true", "message": "포스트잇 검출 성공", "postit_found": "true", "postit_image": "base64 string"},
+                    "response_error": {"success": "false", "message": "포스트잇을 찾지 못했습니다", "postit_found": "false"}
                 }
             },
             "파일": {
@@ -950,8 +1212,9 @@ def home():
         "features": {
             "알림 시스템": "메모리 기반 실시간 알림 (새 인증 사진 업로드시 자동 발송)",
             "포스트잇 검출": "AI 기반 이미지 처리 (app_umai.py 연동)",
-            "사용자 관리": "회원가입, 로그인, 계정 삭제",
-            "도전과제 관리": "생성, 조회, 삭제, 상태 업데이트",
+            "사용자 관리": "회원가입, 로그인, 계정 삭제, 전체 사용자 목록 조회",
+            "도전과제 관리": "생성, 조회, 삭제, 상태 업데이트, 만기일 설정",
+            "태그 시스템": "태그 기반 도전과제 분류 및 검색",
             "사진 업로드": "인증 사진 업로드 및 관리"
         },
         "upload_settings": {
@@ -961,9 +1224,17 @@ def home():
         },
         "notification_system": {
             "storage": "메모리 기반 (서버 재시작시 초기화)",
-            "triggers": ["새 인증 사진 제출"],
-            "recipients": ["도전과제 생성자", "기존 참여자들"],
+            "triggers": ["새 인증 사진 제출", "관심 태그 관련 새 도전과제"],
+            "recipients": ["도전과제 생성자", "기존 참여자들", "관심 태그 설정한 사용자"],
             "polling_endpoint": "GET /api/notify/{user_email}"
+        },
+        "tag_system": {
+            "features": ["도전과제에 태그 추가", "태그별 도전과제 조회", "인기 태그 확인"],
+            "endpoints": ["GET /api/tags", "GET /api/tags/{tag_name}/challenges"]
+        },
+        "challenge_updates": {
+            "expired_date": "도전과제 생성 시 만기일 설정 가능 (기본값: 생성일+7일)",
+            "status_info": "is_expired, days_left 필드를 통한 만료 정보 제공"
         }
     })
 

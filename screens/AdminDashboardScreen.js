@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { globalStyles } from '../utils/styles';
-import { TextInput } from 'react-native'; // TextInput 추가
-// import AsyncStorage from '@react-native-async-storage/async-storage'; // TODO 주석 해제
+import { TextInput } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // TODO 주석 해제
 import axios from 'axios'; // TODO 주석 해제
 
 const API_BASE_URL = 'http://219.254.146.234:5000/api'; // 백엔드 서버 URL 설정
 
 export default function AdminDashboardScreen({ navigation }) {
   const [users, setUsers] = useState([]);
-  const [allChallengeCreators, setAllChallengeCreators] = useState([]); // 새롭게 추가될 상태
+  const [allUsers, setAllUsers] = useState([]); // 모든 사용자 목록 (검색용)
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,43 +20,57 @@ export default function AdminDashboardScreen({ navigation }) {
     fetchData();
   }, []);
 
+  // 날짜 포맷팅 함수 (컴포넌트 내부에 추가)
+  const formatDate = (dateString) => {
+    if (!dateString) return '없음';
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '유효하지 않은 날짜';
+    
+    // YYYY-MM-DD HH:MM 형식으로 포맷팅
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+
   // TODO: 백엔드 통신을 위한 인증 헤더 가져오기 함수 (필요시)
-  // const getAuthHeaders = async () => {
-  //   const token = await AsyncStorage.getItem('token');
-  //   return {
-  //     headers: {
-  //       Authorization: `Bearer ${token}`,
-  //     },
-  //   };
-  // };
+  const getAuthHeaders = async () => {
+    const token = await AsyncStorage.getItem('token');
+    return {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
+  };
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      // const headers = await getAuthHeaders(); // TODO: 관리자 로그인 구현 시 주석 해제
+      const headers = await getAuthHeaders(); // TODO: 관리자 로그인 구현 시 주석 해제
 
-      // 백엔드에서 회원 정보 가져오기 (기존 API 없음)
-      setUsers([]); // 임시로 빈 배열 설정
+      // 수정된 부분: 새로 구현한 /api/users API 엔드포인트를 사용하여 모든 사용자 정보 가져오기
+      const usersResponse = await axios.get(`${API_BASE_URL}/users`, headers);
+      
+      // API 응답이 배열 형태인 경우
+      if (Array.isArray(usersResponse.data)) {
+        setUsers(usersResponse.data);
+        setAllUsers(usersResponse.data);
+      } 
+      // API 응답이 객체 형태인 경우 (users 필드 사용)
+      else if (usersResponse.data && Array.isArray(usersResponse.data.users)) {
+        setUsers(usersResponse.data.users);
+        setAllUsers(usersResponse.data.users);
+      } 
+      // 그 외의 경우 (오류 처리)
+      else {
+        console.error('Unexpected API response format:', usersResponse.data);
+        Alert.alert('오류', '사용자 데이터 형식이 올바르지 않습니다.');
+        setUsers([]);
+        setAllUsers([]);
+      }
 
       // 백엔드에서 도전과제 목록 가져오기
       const challengesResponse = await axios.get(`${API_BASE_URL}/challenges`);
       setChallenges(challengesResponse.data);
-
-      // 도전과제 생성자 정보를 추출하여 사용자 목록으로 설정
-      const uniqueCreators = new Map();
-      challengesResponse.data.forEach(challenge => {
-        if (challenge.creator && challenge.creatorName) { // 유효한 생성자 정보만 추가
-          uniqueCreators.set(challenge.creator, {
-            id: challenge.creator, // 이메일을 고유 ID로 사용
-            email: challenge.creator,
-            name: challenge.creatorName
-          });
-        }
-      });
-      const creatorsArray = Array.from(uniqueCreators.values());
-      setUsers(creatorsArray); // 현재 표시될 유저 목록
-      setAllChallengeCreators(creatorsArray); // 모든 유저 목록 (검색 필터링에 사용)
 
     } catch (err) {
       console.error('Admin Dashboard Fetch Error:', err.response?.data || err.message);
@@ -68,74 +82,86 @@ export default function AdminDashboardScreen({ navigation }) {
   };
 
   const handleDeleteUser = async (userId) => {
-    Alert.alert(
-      '사용자 삭제',
-      '정말로 이 사용자를 삭제하시겠습니까? 관련 모든 데이터가 삭제됩니다.',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          onPress: async () => {
-            Alert.alert('알림', '사용자 삭제 기능은 현재 비활성화되어 있습니다. (TODO)');
-          },
-        },
-      ]
-    );
+    try {
+      // 토큰 가져오기
+      const token = await AsyncStorage.getItem('token');
+      
+      // 삭제 API 호출
+      await axios.delete(`${API_BASE_URL}/users/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      // 성공시 목록 갱신
+      fetchData();
+    } catch (err) {
+      console.error('Delete User Error:', err.response?.data || err.message);
+      Alert.alert('오류', err.response?.data?.error || '사용자 삭제에 실패했습니다.');
+    }
   };
 
   const handleDeleteChallenge = async (challengeId) => {
-    Alert.alert(
-      '도전과제 삭제',
-      '정말로 이 도전과제를 삭제하시겠습니까? 관련 모든 인증 기록이 삭제됩니다.',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          onPress: async () => {
-            Alert.alert('알림', '도전과제 삭제 기능은 현재 비활성화되어 있습니다. (TODO)');
-          },
-        },
-      ]
-    );
+    try {
+      // 토큰 가져오기
+      const token = await AsyncStorage.getItem('token');
+      
+      // 삭제 API 호출
+      await axios.delete(`${API_BASE_URL}/challenges/${challengeId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      // 성공시 목록 갱신
+      fetchData();
+    } catch (err) {
+      console.error('Delete Challenge Error:', err.response?.data || err.message);
+      Alert.alert('오류', err.response?.data?.error || '도전과제 삭제에 실패했습니다.');
+    }
   };
 
-  // 사용자 검색 로직 (게시물 생성자 기준 클라이언트 필터링)
-  const handleSearchUsers = async (query) => {
+  // 수정된 부분: 사용자 검색 로직 (클라이언트 필터링)
+  const handleSearchUsers = (query) => {
     // query.trim()으로 앞뒤 공백 제거 후 비어있는지 확인
     if (query.trim() === '') {
-      setUsers(allChallengeCreators); // 검색어가 없으면 전체 목록 표시
-      Alert.alert('알림', '전체 사용자 목록을 표시합니다.');
-      return; // 함수 종료
+      setUsers(allUsers); // 검색어가 없으면 전체 목록 표시
+      return;
     }
 
-    setLoading(true);
-    try {
-      const filteredUsers = allChallengeCreators.filter(user => // allChallengeCreators 사용
-        user.email.toLowerCase().includes(query.toLowerCase()) || 
-        user.name.toLowerCase().includes(query.toLowerCase())
-      );
-      setUsers(filteredUsers);
-      Alert.alert('알림', `사용자 검색 완료: ${filteredUsers.length}명`);
-    } catch (err) {
-      console.error('Search Users Error:', err.response?.data || err.message);
-      Alert.alert('오류', err.response?.data?.error || '사용자 검색에 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
+    const filteredUsers = allUsers.filter(user => 
+      (user.email && user.email.toLowerCase().includes(query.toLowerCase())) || 
+      (user.name && user.name.toLowerCase().includes(query.toLowerCase()))
+    );
+    
+    setUsers(filteredUsers);
+    Alert.alert('알림', `사용자 검색 완료: ${filteredUsers.length}명`);
   };
 
-  // 게시물 검색 로직 (TODO: 백엔드 검색 API가 없을 경우 클라이언트 필터링)
+  // 게시물 검색 로직
   const handleSearchChallenges = async (query) => {
-    // TODO: 백엔드 검색 API가 있다면 이 부분을 수정하세요.
-    // 현재는 모든 게시물을 가져와서 클라이언트에서 필터링합니다.
+    // 검색어가 비어있으면 모든 도전과제를 표시
+    if (query.trim() === '') {
+      try {
+        const headers = await getAuthHeaders();
+        const challengesResponse = await axios.get(`${API_BASE_URL}/challenges`);
+        setChallenges(challengesResponse.data);
+        return;
+      } catch (err) {
+        console.error('Fetch Challenges Error:', err.response?.data || err.message);
+        Alert.alert('오류', err.response?.data?.error || '도전과제 목록을 불러오는데 실패했습니다.');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const challengesResponse = await axios.get(`${API_BASE_URL}/challenges`);
       const allChallenges = challengesResponse.data;
       const filteredChallenges = allChallenges.filter(challenge => 
-        challenge.title.toLowerCase().includes(query.toLowerCase()) || 
-        challenge.creatorName.toLowerCase().includes(query.toLowerCase()) ||
-        challenge.creator.toLowerCase().includes(query.toLowerCase())
+        (challenge.title && challenge.title.toLowerCase().includes(query.toLowerCase())) || 
+        (challenge.creatorName && challenge.creatorName.toLowerCase().includes(query.toLowerCase())) ||
+        (challenge.creator && challenge.creator.toLowerCase().includes(query.toLowerCase()))
       );
       setChallenges(filteredChallenges);
       Alert.alert('알림', `게시물 검색 완료: ${filteredChallenges.length}개`);
@@ -170,15 +196,16 @@ export default function AdminDashboardScreen({ navigation }) {
     <View style={globalStyles.container}>
       <Text style={globalStyles.title}>관리자 대시보드</Text>
 
-      <Text style={styles.sectionTitle}>회원 목록</Text>
+      <Text style={styles.sectionTitle}>회원 목록 ({users.length}명)</Text>
       {/* 사용자 검색 UI */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="게시물 생성자 이메일 또는 이름 검색"
+          placeholder="사용자 이메일 또는 이름 검색"
           placeholderTextColor="#aaa"
           value={searchUserQuery}
           onChangeText={setSearchUserQuery}
+          onSubmitEditing={() => handleSearchUsers(searchUserQuery)}
         />
         <TouchableOpacity
           style={styles.searchButton}
@@ -190,11 +217,21 @@ export default function AdminDashboardScreen({ navigation }) {
       {users.length > 0 ? (
         <FlatList
           data={users}
-          keyExtractor={item => item.id}
+          keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
           renderItem={({ item }) => (
             <View style={styles.listItem}>
-              <Text style={styles.listItemText}>이메일: {item.email}</Text>
-              <Text style={styles.listItemText}>이름: {item.name}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.listItemText}>이메일: {item.email}</Text>
+                <Text style={styles.listItemText}>이름: {item.name}</Text>
+                <Text 
+                  style={[
+                    styles.listItemText, 
+                    { color: item.isAdmin ? '#007bff' : '#888' }
+                  ]}
+                >
+                  {item.isAdmin ? '관리자' : '비관리자'}
+                </Text>
+              </View>
               <TouchableOpacity 
                 onPress={() => handleDeleteUser(item.id)}
                 style={[styles.deleteButton, { backgroundColor: '#ff6347' }]} // Tomato color
@@ -205,10 +242,10 @@ export default function AdminDashboardScreen({ navigation }) {
           )}
         />
       ) : (
-        <Text style={globalStyles.text}>사용자 목록을 불러올 수 없습니다. (TODO)</Text>
+        <Text style={globalStyles.text}>등록된 사용자가 없습니다.</Text>
       )}
 
-      <Text style={styles.sectionTitle}>도전과제 목록</Text>
+      <Text style={styles.sectionTitle}>도전과제 목록 ({challenges.length}개)</Text>
       {/* 게시물 검색 UI */}
       <View style={styles.searchContainer}>
         <TextInput
@@ -217,6 +254,7 @@ export default function AdminDashboardScreen({ navigation }) {
           placeholderTextColor="#aaa"
           value={searchChallengeQuery}
           onChangeText={setSearchChallengeQuery}
+          onSubmitEditing={() => handleSearchChallenges(searchChallengeQuery)}
         />
         <TouchableOpacity
           style={styles.searchButton}
@@ -225,23 +263,50 @@ export default function AdminDashboardScreen({ navigation }) {
           <Text style={styles.searchButtonText}>검색</Text>
         </TouchableOpacity>
       </View>
-      <FlatList
-        data={challenges}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.listItem}>
-            <Text style={styles.listItemText}>제목: {item.title}</Text>
-            <Text style={styles.listItemText}>생성자: {item.creatorName} ({item.creator})</Text>
-            {/* <Text style={styles.listItemText}>상태: {item.status}</Text> */}
-            <TouchableOpacity 
-              onPress={() => handleDeleteChallenge(item.id)}
-              style={[styles.deleteButton, { backgroundColor: '#ff6347' }]} // Tomato color
-            >
-              <Text style={styles.deleteButtonText}>삭제</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      />
+      {challenges.length > 0 ? (
+        <FlatList
+          data={challenges}
+          keyExtractor={(item, index) => item._id ? item._id.toString() : index.toString()}
+          renderItem={({ item }) => (
+            <View style={styles.listItem}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.listItemText}>제목: {item.title}</Text>
+                <Text style={styles.listItemText}>생성자: {item.creatorName} ({item.creator})</Text>
+                
+                {/* 만기일 표시 추가 */}
+                {item.expired_date && (
+                  <Text style={[
+                    styles.listItemText, 
+                    {
+                      color: item.is_expired ? '#dc3545' : 
+                            item.days_left <= 1 ? '#fd7e14' : '#28a745'
+                    }
+                  ]}>
+                    만기일: {formatDate(item.expired_date)}
+                    {item.is_expired ? ' (만료됨)' : 
+                    item.days_left !== null ? ` (${item.days_left}일 남음)` : ''}
+                  </Text>
+                )}
+                
+                {/* 상태 표시 (이미 있는 코드) */}
+                {item.status && item.status !== 'active' && (
+                  <Text style={[styles.listItemText, { color: item.status === 'completed' ? 'green' : 'orange' }]}>
+                    상태: {item.status}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity 
+                onPress={() => handleDeleteChallenge(item._id)}
+                style={[styles.deleteButton, { backgroundColor: '#ff6347' }]} // Tomato color
+              >
+                <Text style={styles.deleteButtonText}>삭제</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+      ) : (
+        <Text style={globalStyles.text}>등록된 도전과제가 없습니다.</Text>
+      )}
     </View>
   );
 }
@@ -304,4 +369,4 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
-}); 
+});

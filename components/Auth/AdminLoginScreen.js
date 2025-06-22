@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
 import { globalStyles } from '../../utils/styles';
-// import { loginUser } from '../../services/authService'; // TODO: 백엔드 통신 필요
-// import AsyncStorage from '@react-native-async-storage/async-storage'; // TODO: 백엔드 통신 필요
+import { loginUser } from '../../services/authService'; // TODO: 백엔드 통신 필요
+import AsyncStorage from '@react-native-async-storage/async-storage'; // TODO: 백엔드 통신 필요
 
 export default function AdminLoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -19,28 +19,29 @@ export default function AdminLoginScreen({ navigation }) {
 
     setLoading(true);
     try {
-      // const response = await loginUser(email, password);
-      // console.log('Admin Login Successful:', response);
+      const response = await loginUser(email, password);
+      console.log('Admin Login Successful:', response);
 
-      // const userJson = await AsyncStorage.getItem('user');
-      // const user = userJson ? JSON.parse(userJson) : null;
+      const userJson = await AsyncStorage.getItem('user');
+      const user = userJson ? JSON.parse(userJson) : null;
 
-      // if (user && user.isAdmin) {
-      //   navigation.reset({
-      //     index: 0,
-      //     routes: [{ name: 'AdminDashboard' }],
-      //   });
-      // } else {
-      //   Alert.alert('로그인 실패', '관리자 계정이 아닙니다.');
-      //   await AsyncStorage.removeItem('token');
-      //   await AsyncStorage.removeItem('user');
-      // }
-      
+      if (user && user.isAdmin) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'AdminDashboard' }],
+        });
+      } else {
+        Alert.alert('로그인 실패', '관리자 계정이 아닙니다.');
+        console.log('You Are Not Admin');
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('user');
+      }
+      /*
       // 임시: 성공 시 바로 대시보드로 이동
       navigation.reset({
         index: 0,
         routes: [{ name: 'AdminDashboard' }],
-      });
+      });//*/
 
     } catch (error) {
       console.error('Admin Login Error:', error);
