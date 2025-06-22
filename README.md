@@ -8,7 +8,7 @@ React Native와 Python Flask를 활용한 크로스플랫폼 도전과제 관리
 
 ### 1. 백엔드 서버 설정
 
-#### 1-1. 가상환경 생성 및 활성화
+#### 1-1. 가상환경 생성(선택적) 및 활성화
 ```bash
 cd BACK_SERVER
 python -m venv venv
@@ -29,13 +29,10 @@ pip install flask flask-cors pymysql bcrypt pyjwt pillow
 BACK_SERVER 폴더에 `.env` 파일을 생성하고 다음과 같이 설정:
 ```env
 # 데이터베이스 설정
-DB_HOST=localhost
-DB_NAME=ChallengeDB
-DB_USER=root
 DB_PASSWORD=your_mysql_password
 
 # JWT 보안 키
-JWT_SECRET_KEY=**v61r+m=g%#D]H6k*|Xf59ym=j#TlAZ)=Hx?.c3{z+bIqAG36j..cTMAO5+VHXv
+JWT_SECRET_KEY=**v61r+m=g%#D]H6k*|Xf59ym=j#TlAZ)=Hx?.c3{z+bIqAG36j..cTMAO5+VHXv (선택적, 미작성시 기본값으로 대체됨)
 ```
 
 #### 1-4. 백엔드 서버 실행
@@ -64,116 +61,75 @@ npm start
 #### 3-1. MySQL 데이터베이스 및 테이블 생성
 
 ```sql
--- ChallengeDB 데이터베이스 생성
-CREATE DATABASE IF NOT EXISTS ChallengeDB;
-USE ChallengeDB;
 
--- 1. Users 테이블 (사용자 정보)
+-- 데이터베이스 생성
+CREATE DATABASE challengeDB;
+USE challengeDB;
+
+-- 1. 사용자 테이블 (isAdmin 컬럼 포함)
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,  -- bcrypt 해시
     name VARCHAR(100) NOT NULL,
     isAdmin BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    INDEX idx_email (email)
-);
-
--- 2. Tags 테이블 (9개 카테고리 태그)
-CREATE TABLE tags (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Challenges 테이블 (도전과제)
+-- 2. 태그 테이블
+CREATE TABLE tags (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. 챌린지 테이블 (expired_date 컬럼 포함)
 CREATE TABLE challenges (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
-    content TEXT,
-    creator_id INT NOT NULL,
-    creator_email VARCHAR(255) NOT NULL,
-    expired_date DATETIME,
-    status ENUM('active', 'completed', 'cancelled') DEFAULT 'active',
+    content TEXT NOT NULL,
+    creator VARCHAR(255) NOT NULL,  -- 이메일
+    creator_name VARCHAR(100) NOT NULL,
+    status VARCHAR(50) DEFAULT 'active',  -- 상태 업데이트 API를 위해
+    expired_date TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_creator (creator_id),
-    INDEX idx_status (status),
-    INDEX idx_created_at (created_at)
+    FOREIGN KEY (creator) REFERENCES users(email)
 );
 
--- 4. Challenge_Tags 테이블 (도전과제-태그 관계)
-CREATE TABLE challenge_tags (
+-- 4. 챌린지 제출 테이블
+CREATE TABLE challenge_submissions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     challenge_id INT NOT NULL,
-    tag_id INT NOT NULL,
-    
-    FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_challenge_tag (challenge_id, tag_id)
-);
-
--- 5. Verifications 테이블 (인증 사진)
-CREATE TABLE verifications (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    challenge_id INT NOT NULL,
-    user_id INT NOT NULL,
     user_email VARCHAR(255) NOT NULL,
-    photo_url VARCHAR(500),
+    user_name VARCHAR(100) NOT NULL,
+    photo_path VARCHAR(500),  -- 사진 경로 (선택적)
     comment TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_challenge (challenge_id),
-    INDEX idx_user (user_id),
-    INDEX idx_created_at (created_at)
+    FOREIGN KEY (user_email) REFERENCES users(email)
 );
 
--- 6. User_Challenges 테이블 (사용자-도전과제 참여 관계)
-CREATE TABLE user_challenges (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    challenge_id INT NOT NULL,
-    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('participating', 'completed', 'dropped') DEFAULT 'participating',
-    
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_user_challenge (user_id, challenge_id),
-    INDEX idx_user (user_id),
-    INDEX idx_challenge (challenge_id),
-    INDEX idx_status (status)
-);
-
--- 7. User_Interests 테이블 (사용자 관심 태그)
+-- 5. 사용자 관심사 테이블 (유저의 관심사)
 CREATE TABLE user_interests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     tag_id INT NOT NULL,
-    tag_name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
     UNIQUE KEY unique_user_tag (user_id, tag_id)
 );
 
--- 8. 기본 태그 데이터 삽입 (9개 카테고리)
-INSERT INTO tags (name) VALUES 
-('학습/공부'),
-('운동/건강'),
-('요리/생활'),
-('창작/취미'),
-('마음/명상'),
-('사회/관계'),
-('업무/커리어'),
-('환경/지속가능'),
-('도전/모험');
+-- 6. 챌린지-태그 관계 테이블 (챌린지의 태그)
+CREATE TABLE challenge_tags (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    challenge_id INT NOT NULL,
+    tag_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_challenge_tag (challenge_id, tag_id)
+);
 ```
 
 ## 🔧 R&R 기반 구현 상세
