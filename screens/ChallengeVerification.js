@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, Image, Platform, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import BottomNavBar from '../navigation/BottomNavBar';
+
 import { uploadVerificationPhoto } from '../services/challengeService';
 import { getCurrentUser } from '../services/authService';
 import { verifyWithOCR } from '../services/ocrService';

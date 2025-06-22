@@ -8,15 +8,32 @@ import {
   RefreshControl,
   Alert,
   Platform,
+  Modal,
+  ScrollView,
 } from "react-native";
 import { globalStyles } from "../utils/styles";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import BottomNavBar from "../navigation/BottomNavBar";
+
 import { getCurrentUser } from "../services/authService";
 import {
   getUserChallenges,
   getUserChallengeStats,
 } from "../services/challengeService";
+import api from "../services/api";
+import pushNotificationService from "../services/pushNotificationService";
+
+// 9개 카테고리 태그 정의
+const AVAILABLE_TAGS = [
+  '학습/공부',
+  '운동/건강',
+  '요리/생활',
+  '창작/취미',
+  '마음/명상',
+  '사회/관계',
+  '업무/커리어',
+  '환경/지속가능',
+  '도전/모험'
+];
 
 export default function MyPage({ navigation, route }) {
   const [challenges, setChallenges] = useState([]);
@@ -28,6 +45,8 @@ export default function MyPage({ navigation, route }) {
     total: 0,
     failed: 0,
   });
+  const [userInterests, setUserInterests] = useState([]);
+  const [showInterestModal, setShowInterestModal] = useState(false);
 
   // App.js에서 전달받은 로그인 상태 변경 콜백
   const onLoginStateChange = route?.params?.onLoginStateChange;
@@ -44,8 +63,11 @@ export default function MyPage({ navigation, route }) {
 
       if (user) {
         setCurrentUser(user);
-        // fetchUserChallenges 내에서 통계도 함께 계산하므로 하나만 호출
-        await fetchUserChallenges(user.email);
+        // 사용자 도전과제와 관심 태그를 병렬로 로드
+        await Promise.all([
+          fetchUserChallenges(user.email),
+          loadUserInterests()
+        ]);
       } else {
         // 사용자 정보가 없으면 로그인 화면으로 이동
         console.log("사용자 정보가 없습니다. 로그인 화면으로 이동합니다.");
@@ -57,6 +79,49 @@ export default function MyPage({ navigation, route }) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const loadUserInterests = async () => {
+    try {
+      const interestData = await api.userInterest.getUserInterests();
+      console.log('서버에서 가져온 관심 태그 데이터:', interestData);
+      
+      // 서버에서 반환하는 데이터는 {tag_id, tag_name} 형태의 객체 배열
+      // UI에서는 tag_name만 필요하므로 변환
+      const tagNames = interestData.map(interest => interest.tag_name || interest.name);
+      setUserInterests(tagNames);
+      console.log('관심 태그 목록:', tagNames);
+    } catch (error) {
+      console.error("관심 태그 로드 오류:", error);
+      setUserInterests([]);
+    }
+  };
+
+  const handleInterestToggle = (tag) => {
+    setUserInterests(prev => {
+      if (prev.includes(tag)) {
+        return prev.filter(t => t !== tag);
+      } else {
+        return [...prev, tag];
+      }
+    });
+  };
+
+  const saveUserInterests = async () => {
+    try {
+      if (!currentUser) return;
+      
+      console.log('관심 태그 저장 중...', userInterests);
+      await api.userInterest.updateUserInterests(currentUser.email, userInterests);
+      setShowInterestModal(false);
+      Alert.alert("성공", "관심 태그가 서버에 저장되었습니다!");
+      
+      // 저장 후 다시 로드하여 서버 상태와 동기화
+      await loadUserInterests();
+    } catch (error) {
+      console.error("관심 태그 저장 오류:", error);
+      Alert.alert("오류", `관심 태그 저장에 실패했습니다: ${error.message}`);
     }
   };
 
@@ -168,6 +233,27 @@ export default function MyPage({ navigation, route }) {
     navigation.navigate("ChallengeDetail", { challenge });
   };
 
+  const handleTestNotification = async () => {
+    try {
+      console.log('테스트 알림 시작...');
+      await pushNotificationService.sendTestNotification();
+    } catch (error) {
+      console.error('테스트 알림 오류:', error);
+      Alert.alert('오류', '테스트 알림 중 오류가 발생했습니다: ' + error.message);
+    }
+  };
+
+  const handleManualCheck = async () => {
+    try {
+      console.log('수동 알림 체크 시작...');
+      await pushNotificationService.checkNewChallengesByInterests();
+      Alert.alert('완료', '관심 태그 기반 새 도전과제 체크가 완료되었습니다. 콘솔을 확인해주세요.');
+    } catch (error) {
+      console.error('수동 체크 오류:', error);
+      Alert.alert('오류', '수동 체크 중 오류가 발생했습니다: ' + error.message);
+    }
+  };
+
   const renderChallenge = ({ item }) => (
     <TouchableOpacity
       style={{
@@ -199,37 +285,25 @@ export default function MyPage({ navigation, route }) {
           <Text
             style={[
               globalStyles.text,
-              { fontSize: 10, color: "#FFC300", marginTop: 1 },
+              { fontSize: 10, color: "#FF6B6B", marginTop: 2 },
             ]}
           >
             내가 생성한 도전과제
           </Text>
         )}
       </View>
-      <View
-        style={{
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          borderRadius: 4,
-          backgroundColor:
-            item.status === "완료"
-              ? "#4CAF50"
-              : item.status === "실패"
-              ? "#F44336"
-              : "#FFC107",
-        }}
-      >
+      <View style={{ alignItems: "center" }}>
         <Text
           style={[
             globalStyles.text,
             {
-              color: "white",
               fontSize: 12,
+              color: item.status === "완료" ? "#4CAF50" : "#FFA726",
               fontWeight: "bold",
             },
           ]}
         >
-          {item.status || "진행중"}
+          {item.status}
         </Text>
       </View>
     </TouchableOpacity>
@@ -271,11 +345,77 @@ export default function MyPage({ navigation, route }) {
             {currentUser.email}
           </Text>
 
+          {/* 관심 태그 설정 버튼 */}
+          <TouchableOpacity
+            onPress={() => setShowInterestModal(true)}
+            style={{
+              marginTop: 10,
+              backgroundColor: "#FFE357",
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderRadius: 8,
+              alignSelf: "center",
+            }}
+          >
+            <Text
+              style={[
+                globalStyles.text,
+                { color: "#5E4636", fontSize: 14, fontWeight: "bold" },
+              ]}
+            >
+              관심 태그 설정 ({userInterests.length})
+            </Text>
+          </TouchableOpacity>
+
+          {/* 알림 테스트 버튼 */}
+          <TouchableOpacity
+            onPress={handleTestNotification}
+            style={{
+              marginTop: 10,
+              backgroundColor: "#4CAF50",
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderRadius: 8,
+              alignSelf: "center",
+            }}
+          >
+            <Text
+              style={[
+                globalStyles.text,
+                { color: "white", fontSize: 14, fontWeight: "bold" },
+              ]}
+            >
+              🔔 실제 푸시 알림 테스트
+            </Text>
+          </TouchableOpacity>
+
+          {/* 수동 알림 체크 버튼 */}
+          <TouchableOpacity
+            onPress={handleManualCheck}
+            style={{
+              marginTop: 10,
+              backgroundColor: "#FF9800",
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderRadius: 8,
+              alignSelf: "center",
+            }}
+          >
+            <Text
+              style={[
+                globalStyles.text,
+                { color: "white", fontSize: 14, fontWeight: "bold" },
+              ]}
+            >
+              🔍 관심 태그 알림 수동 체크
+            </Text>
+          </TouchableOpacity>
+
           {/* 로그아웃 버튼 */}
           <TouchableOpacity
             onPress={handleLogout}
             style={{
-              marginTop: 15,
+              marginTop: 10,
               backgroundColor: "#FF6B6B",
               paddingHorizontal: 20,
               paddingVertical: 10,
@@ -427,6 +567,123 @@ export default function MyPage({ navigation, route }) {
           </View>
         )}
       </View>
+
+      {/* 관심 태그 설정 모달 */}
+      <Modal
+        visible={showInterestModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowInterestModal(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          <View style={{
+            backgroundColor: '#FFFCF4',
+            borderRadius: 20,
+            padding: 20,
+            width: '90%',
+            maxHeight: '80%',
+          }}>
+            <Text style={[globalStyles.text, {
+              fontSize: 20,
+              fontWeight: 'bold',
+              color: '#5E4636',
+              textAlign: 'center',
+              marginBottom: 20,
+            }]}>
+              관심 태그 설정
+            </Text>
+
+            <ScrollView style={{ maxHeight: 300 }}>
+              <Text style={[globalStyles.text, {
+                fontSize: 14,
+                color: '#666',
+                marginBottom: 15,
+                textAlign: 'center',
+              }]}>
+                관심있는 태그를 선택하면 해당 태그의 새로운 도전과제 알림을 받을 수 있습니다.
+              </Text>
+
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                {AVAILABLE_TAGS.map((tag) => (
+                  <TouchableOpacity
+                    key={tag}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderRadius: 25,
+                      borderWidth: 2,
+                      borderColor: userInterests.includes(tag) ? '#FFE357' : '#DDD',
+                      backgroundColor: userInterests.includes(tag) ? '#FFE357' : '#FFF',
+                      minWidth: 100,
+                      alignItems: 'center',
+                    }}
+                    onPress={() => handleInterestToggle(tag)}
+                  >
+                    <Text style={[
+                      globalStyles.text,
+                      {
+                        fontSize: 14,
+                        color: userInterests.includes(tag) ? '#5E4636' : '#666',
+                        fontWeight: userInterests.includes(tag) ? 'bold' : 'normal'
+                      }
+                    ]}>
+                      {tag}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {userInterests.length > 0 && (
+                <Text style={[globalStyles.text, {
+                  fontSize: 12,
+                  color: '#666',
+                  marginTop: 15,
+                  textAlign: 'center',
+                }]}>
+                  선택된 태그: {userInterests.join(', ')}
+                </Text>
+              )}
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#DDD',
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                }}
+                onPress={() => setShowInterestModal(false)}
+              >
+                <Text style={[globalStyles.text, { color: '#666', fontWeight: 'bold' }]}>
+                  취소
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#FFE357',
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                }}
+                onPress={saveUserInterests}
+              >
+                <Text style={[globalStyles.text, { color: '#5E4636', fontWeight: 'bold' }]}>
+                  저장
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

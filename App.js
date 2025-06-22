@@ -5,6 +5,36 @@ import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AppNavigator from "./navigation/AppNavigator";
 import BottomNavBar from "./navigation/BottomNavBar";
+import { getCurrentUser } from "./services/authService";
+import pushNotificationService from "./services/pushNotificationService";
+
+// 앱 시작과 동시에 expo-notifications 경고/에러 완전 차단
+const originalWarn = console.warn;
+const originalError = console.error;
+
+console.warn = (...args) => {
+  const message = String(args[0] || '');
+  if (message.includes('expo-notifications') || 
+      message.includes('functionality is not fully supported in Expo Go') ||
+      message.includes('Android Push notifications') ||
+      message.includes('remote notifications') ||
+      message.includes('development build instead')) {
+    return; // 완전 무시
+  }
+  originalWarn.apply(console, args);
+};
+
+console.error = (...args) => {
+  const message = String(args[0] || '');
+  if (message.includes('expo-notifications') || 
+      message.includes('Android Push notifications') ||
+      message.includes('remote notifications') ||
+      message.includes('development build instead') ||
+      message.includes('Use a development build')) {
+    return; // 완전 무시
+  }
+  originalError.apply(console, args);
+};
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -14,41 +44,45 @@ export default function App() {
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    checkLoginStatus();
-
-    // 주기적으로 로그인 상태 체크 (10초마다)
-    const interval = setInterval(checkLoginStatus, 10000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const checkLoginStatus = async () => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      const user = await AsyncStorage.getItem("user");
-      const loginState = !!(token && user);
-
-      if (loginState !== isLoggedIn) {
-        console.log("로그인 상태 변경:", loginState);
-        setIsLoggedIn(loginState);
-      }
-    } catch (error) {
-      console.error("로그인 상태 확인 오류:", error);
-      setIsLoggedIn(false);
-    } finally {
-      if (isLoading) {
+    const checkAuth = async () => {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          setIsLoggedIn(true);
+          setCurrentUser(user);
+          // 알림 시스템 시작
+          await pushNotificationService.startNotificationSystem(user.email);
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
         setIsLoading(false);
       }
-    }
+    };
+
+    checkAuth();
+
+    // 앱 종료 시 알림 시스템 정리
+    return () => {
+      pushNotificationService.stopNotificationSystem();
+    };
+  }, []);
+
+  const handleLogin = async (user) => {
+    setIsLoggedIn(true);
+    setCurrentUser(user);
+    // 로그인 시 알림 시스템 시작
+    await pushNotificationService.startNotificationSystem(user.email);
   };
 
-  const handleLoginStateChange = (newLoginState) => {
-    console.log("로그인 상태 수동 변경:", newLoginState);
-    setIsLoggedIn(newLoginState);
-    // 상태 변경 후 즉시 체크
-    setTimeout(checkLoginStatus, 100);
+  const handleLogout = async () => {
+    // 로그아웃 시 알림 시스템 중지
+    pushNotificationService.stopNotificationSystem();
+    setIsLoggedIn(false);
+    setCurrentUser(null);
   };
 
   if (!fontsLoaded || isLoading) {
@@ -61,7 +95,11 @@ export default function App() {
 
   return (
     <View style={{ flex: 1 }}>
-      <AppNavigator onLoginStateChange={handleLoginStateChange} />
+      <AppNavigator 
+        onLogin={handleLogin}
+        onLogout={handleLogout}
+        isLoggedIn={isLoggedIn}
+      />
       {isLoggedIn && <BottomNavBar />}
     </View>
   );
