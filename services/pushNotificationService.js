@@ -280,10 +280,28 @@ class PushNotificationService {
   async checkIfAlreadyNotified(notificationId) {
     try {
       const notifiedList = await AsyncStorage.getItem('notifiedChallenges');
-      if (!notifiedList) return false;
+      if (!notifiedList) {
+        console.log(`🔍 알림 기록 없음: ${notificationId}`);
+        return false;
+      }
 
       const notified = JSON.parse(notifiedList);
-      return notified.includes(notificationId);
+      const isNotified = notified.some(record => {
+        if (typeof record === 'string') {
+          return record === notificationId;
+        }
+        return record.id === notificationId;
+      });
+      
+      if (isNotified) {
+        console.log(`🔇 이미 알림 전송됨 (기록 확인): ${notificationId}`);
+        // 현재 저장된 알림 기록들 출력
+        console.log(`📝 현재 알림 기록들:`, notified.slice(-5)); // 최근 5개만 표시
+      } else {
+        console.log(`✅ 새로운 알림 가능: ${notificationId}`);
+      }
+      
+      return isNotified;
     } catch (error) {
       console.error('알림 체크 오류:', error);
       return false;
@@ -296,18 +314,96 @@ class PushNotificationService {
       const notifiedList = await AsyncStorage.getItem('notifiedChallenges');
       let notified = notifiedList ? JSON.parse(notifiedList) : [];
       
-      if (!notified.includes(notificationId)) {
-        notified.push(notificationId);
-        
-        // 최대 50개까지만 저장 (메모리 절약)
-        if (notified.length > 50) {
-          notified = notified.slice(-50);
-        }
-        
-        await AsyncStorage.setItem('notifiedChallenges', JSON.stringify(notified));
+      // 날짜 정보와 함께 저장
+      const record = {
+        id: notificationId,
+        timestamp: Date.now(),
+        date: new Date().toISOString().split('T')[0] // YYYY-MM-DD 형식
+      };
+      
+      // 이미 존재하는지 확인
+      const exists = notified.some(item => 
+        (typeof item === 'string' && item === notificationId) ||
+        (typeof item === 'object' && item.id === notificationId)
+      );
+      
+      if (!exists) {
+        notified.push(record);
+        console.log(`📝 알림 기록 저장: ${notificationId} (${record.date})`);
+      } else {
+        console.log(`⚠️ 이미 기록된 알림: ${notificationId}`);
       }
+      
+      // 7일 이전 기록 정리
+      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      notified = notified.filter(item => {
+        if (typeof item === 'string') return true; // 기존 문자열 형식은 유지
+        return item.timestamp > sevenDaysAgo;
+      });
+      
+      // 최대 100개까지만 저장 (메모리 절약)
+      if (notified.length > 100) {
+        notified = notified.slice(-100);
+      }
+      
+      await AsyncStorage.setItem('notifiedChallenges', JSON.stringify(notified));
+      console.log(`💾 총 ${notified.length}개의 알림 기록 저장됨`);
+      
     } catch (error) {
       console.error('알림 표시 저장 오류:', error);
+    }
+  }
+
+  // 🆕 알림 기록 확인 (디버깅용)
+  async getNotificationHistory() {
+    try {
+      const notifiedList = await AsyncStorage.getItem('notifiedChallenges');
+      if (!notifiedList) return [];
+      
+      const notified = JSON.parse(notifiedList);
+      console.log(`📋 전체 알림 기록 (${notified.length}개):`, notified);
+      return notified;
+    } catch (error) {
+      console.error('알림 기록 조회 오류:', error);
+      return [];
+    }
+  }
+
+  // 🆕 알림 기록 초기화 (디버깅용)
+  async clearNotificationHistory() {
+    try {
+      await AsyncStorage.removeItem('notifiedChallenges');
+      console.log('🗑️ 모든 알림 기록이 삭제되었습니다.');
+      return true;
+    } catch (error) {
+      console.error('알림 기록 삭제 오류:', error);
+      return false;
+    }
+  }
+
+  // 🆕 오늘의 알림 기록만 초기화
+  async clearTodayNotifications() {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const notifiedList = await AsyncStorage.getItem('notifiedChallenges');
+      
+      if (!notifiedList) {
+        console.log('🗑️ 삭제할 알림 기록이 없습니다.');
+        return true;
+      }
+
+      const notified = JSON.parse(notifiedList);
+      const filtered = notified.filter(item => {
+        if (typeof item === 'string') return true; // 기존 문자열 형식은 유지
+        return item.date !== today;
+      });
+
+      await AsyncStorage.setItem('notifiedChallenges', JSON.stringify(filtered));
+      console.log(`🗑️ 오늘(${today})의 알림 기록 ${notified.length - filtered.length}개가 삭제되었습니다.`);
+      return true;
+    } catch (error) {
+      console.error('오늘 알림 기록 삭제 오류:', error);
+      return false;
     }
   }
 
@@ -398,11 +494,110 @@ class PushNotificationService {
       }, 1000);
     } else {
       Alert.alert(
-        '모바일 알림 테스트 완료',
-        '로컬 알림이 전송되었습니다! 알림 패널을 확인해주세요.',
+        '알림 전송 완료',
+        '테스트 알림이 전송되었습니다!',
         [{ text: '확인' }]
       );
     }
+  }
+
+  // 🆕 알림 시스템 상태 확인 및 디버깅
+  async debugNotificationSystem() {
+    console.log('🔧 알림 시스템 디버그 정보:');
+    console.log('- 초기화 상태:', this.isInitialized);
+    console.log('- 현재 사용자:', this.currentUserEmail);
+    console.log('- 인터벌 ID:', this.intervalId);
+    console.log('- 플랫폼:', Platform.OS);
+    
+    // 알림 기록 확인
+    const history = await this.getNotificationHistory();
+    console.log(`- 저장된 알림 기록: ${history.length}개`);
+    
+    // 최근 3개 기록 표시
+    if (history.length > 0) {
+      console.log('- 최근 알림 기록 3개:');
+      history.slice(-3).forEach((record, index) => {
+        if (typeof record === 'string') {
+          console.log(`  ${index + 1}. ${record} (구형식)`);
+        } else {
+          console.log(`  ${index + 1}. ${record.id} (${record.date})`);
+        }
+      });
+    }
+
+    // Alert로도 정보 표시
+    Alert.alert(
+      '🔧 알림 시스템 디버그',
+      `초기화: ${this.isInitialized ? '✅' : '❌'}\n` +
+      `사용자: ${this.currentUserEmail || '없음'}\n` +
+      `플랫폼: ${Platform.OS}\n` +
+      `알림 기록: ${history.length}개`,
+      [
+        { text: '기록 보기', onPress: () => this.showNotificationHistory() },
+        { text: '기록 초기화', onPress: () => this.confirmClearHistory() },
+        { text: '닫기' }
+      ]
+    );
+  }
+
+  // 🆕 알림 기록 표시
+  async showNotificationHistory() {
+    const history = await this.getNotificationHistory();
+    
+    if (history.length === 0) {
+      Alert.alert('📭 알림 기록', '저장된 알림 기록이 없습니다.', [{ text: '확인' }]);
+      return;
+    }
+
+    // 최근 10개만 표시
+    const recent = history.slice(-10);
+    const historyText = recent.map((record, index) => {
+      if (typeof record === 'string') {
+        return `${index + 1}. ${record}`;
+      } else {
+        return `${index + 1}. ${record.id}\n   (${record.date})`;
+      }
+    }).join('\n\n');
+
+    Alert.alert(
+      `📋 알림 기록 (최근 ${recent.length}개)`,
+      historyText,
+      [{ text: '확인' }]
+    );
+  }
+
+  // 🆕 알림 기록 초기화 확인
+  confirmClearHistory() {
+    Alert.alert(
+      '🗑️ 알림 기록 초기화',
+      '어떤 기록을 삭제하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        { 
+          text: '오늘만', 
+          onPress: async () => {
+            const success = await this.clearTodayNotifications();
+            Alert.alert(
+              success ? '✅ 완료' : '❌ 오류',
+              success ? '오늘의 알림 기록이 삭제되었습니다.' : '삭제 중 오류가 발생했습니다.',
+              [{ text: '확인' }]
+            );
+          }
+        },
+        { 
+          text: '전체', 
+          style: 'destructive',
+          onPress: async () => {
+            const success = await this.clearNotificationHistory();
+            Alert.alert(
+              success ? '✅ 완료' : '❌ 오류',
+              success ? '모든 알림 기록이 삭제되었습니다.' : '삭제 중 오류가 발생했습니다.',
+              [{ text: '확인' }]
+            );
+          }
+        }
+      ]
+    );
   }
 
   // 웹 브라우저 알림

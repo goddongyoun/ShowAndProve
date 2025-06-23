@@ -254,6 +254,17 @@ export default function MyPage({ navigation, route }) {
     }
   };
 
+  // 🆕 알림 시스템 디버깅 핸들러
+  const handleNotificationDebug = async () => {
+    try {
+      console.log('알림 시스템 디버그 시작...');
+      await pushNotificationService.debugNotificationSystem();
+    } catch (error) {
+      console.error('알림 디버그 오류:', error);
+      Alert.alert('오류', '알림 디버그 중 오류가 발생했습니다: ' + error.message);
+    }
+  };
+
   const renderChallenge = ({ item }) => (
     <TouchableOpacity
       style={{
@@ -408,6 +419,28 @@ export default function MyPage({ navigation, route }) {
               ]}
             >
               🔍 관심 태그 알림 수동 체크
+            </Text>
+          </TouchableOpacity>
+
+          {/* 알림 시스템 디버깅 버튼 */}
+          <TouchableOpacity
+            onPress={handleNotificationDebug}
+            style={{
+              marginTop: 10,
+              backgroundColor: "#FF6B6B",
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderRadius: 8,
+              alignSelf: "center",
+            }}
+          >
+            <Text
+              style={[
+                globalStyles.text,
+                { color: "white", fontSize: 14, fontWeight: "bold" },
+              ]}
+            >
+              🔍 알림 시스템 디버깅
             </Text>
           </TouchableOpacity>
 
