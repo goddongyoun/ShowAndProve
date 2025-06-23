@@ -42,6 +42,9 @@ python server.py
 
 ### 2. 클라이언트 설정
 
+services/ 내부 파일의 BASE_URL을 본인의 백엔드 서버로 바꾸기
+screens/AdminDashboardScreen, ChallengeDetail 의 BASE_URL을 본인의 백엔드 서버로 바꾸기
+
 #### 2-1. 클라이언트 의존성 설치
 ```bash
 npm install

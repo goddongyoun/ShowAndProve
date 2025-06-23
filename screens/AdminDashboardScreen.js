@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet, ScrollView } from 'react-native';
 import { globalStyles } from '../utils/styles';
 import { TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // TODO 주석 해제
@@ -193,7 +193,7 @@ export default function AdminDashboardScreen({ navigation }) {
   }
 
   return (
-    <View style={globalStyles.container}>
+    <ScrollView style={globalStyles.container} contentContainerStyle={{ flexGrow: 1 }}>
       <Text style={globalStyles.title}>관리자 대시보드</Text>
 
       <Text style={styles.sectionTitle}>회원 목록 ({users.length}명)</Text>
@@ -218,6 +218,10 @@ export default function AdminDashboardScreen({ navigation }) {
         <FlatList
           data={users}
           keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+          scrollEnabled={true}
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+          style={styles.flatListStyle}
           renderItem={({ item }) => (
             <View style={styles.listItem}>
               <View style={{ flex: 1 }}>
@@ -267,6 +271,10 @@ export default function AdminDashboardScreen({ navigation }) {
         <FlatList
           data={challenges}
           keyExtractor={(item, index) => item._id ? item._id.toString() : index.toString()}
+          scrollEnabled={true}
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+          style={styles.flatListStyle}
           renderItem={({ item }) => (
             <View style={styles.listItem}>
               <View style={{ flex: 1 }}>
@@ -307,7 +315,7 @@ export default function AdminDashboardScreen({ navigation }) {
       ) : (
         <Text style={globalStyles.text}>등록된 도전과제가 없습니다.</Text>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -368,5 +376,9 @@ const styles = StyleSheet.create({
   searchButtonText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  flatListStyle: {
+    maxHeight: 200, // FlatList 최대 높이 제한
+    marginBottom: 20,
   },
 });
